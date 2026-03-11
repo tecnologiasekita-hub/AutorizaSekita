@@ -1,1 +1,33 @@
-asd.123sekita
+Senha do banco
+AhYJ1MNBCrOOK9BD
+
+Criar novo usuario
+INSERT INTO auth.users (
+  id, email, encrypted_password, email_confirmed_at,
+  created_at, updated_at, raw_app_meta_data, raw_user_meta_data,
+  is_super_admin, role
+)
+VALUES (
+  gen_random_uuid(),
+  'novousuario@sekita.com.br',
+  crypt('senha123', gen_salt('bf')),
+  NOW(), NOW(), NOW(),
+  '{"provider":"email","providers":["email"]}',
+  '{}',
+  false,
+  'authenticated'
+);
+
+Promover para supervisor ou diretor
+UPDATE profiles SET role = 'supervisor', departamento = 'Financeiro'
+WHERE email = 'novousuario@sekita.com.br';
+
+Adicionar departamento
+UPDATE profiles 
+SET nome = 'Nome Completo', departamento = 'Financeiro'
+WHERE email = 'user@sekita.com.br';
+
+Redefinir senha
+UPDATE auth.users 
+SET encrypted_password = crypt('novasenha123', gen_salt('bf'))
+WHERE email = 'user@sekita.com.br';
