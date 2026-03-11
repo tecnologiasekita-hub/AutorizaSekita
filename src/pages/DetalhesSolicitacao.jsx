@@ -131,7 +131,7 @@ export default function DetalhesSolicitacao() {
       <ProgressTracker sol={sol} />
 
       {/* Details */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }} className="grid-auto-fit">
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h3 style={s.cardTitle}>Detalhes</h3>
           <InfoRow icon={User} label="Solicitante" value={sol.solicitante?.nome || '—'} />
@@ -174,7 +174,7 @@ export default function DetalhesSolicitacao() {
                 <label><MessageSquare size={12} style={{ display: 'inline', marginRight: 5 }} />Comentário (opcional)</label>
                 <textarea className="input" rows={3} placeholder="Observação sobre sua decisão..." value={comentario} onChange={e => setComentario(e.target.value)} />
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10 }} className="action-buttons">
                 <button className="btn btn-success" onClick={handleAprovar} disabled={saving}>
                   {saving ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'var(--green)' }} /> : <CheckCircle size={15} />}
                   Aprovar
@@ -190,7 +190,7 @@ export default function DetalhesSolicitacao() {
                 <label>Motivo da rejeição *</label>
                 <textarea className="input" rows={3} placeholder="Explique o motivo..." value={motivo} onChange={e => setMotivo(e.target.value)} autoFocus />
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10 }} className="action-buttons">
                 <button className="btn btn-danger" onClick={handleRejeitar} disabled={saving || !motivo.trim()}>
                   {saving ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'var(--red)' }} /> : <XCircle size={15} />}
                   Confirmar rejeição

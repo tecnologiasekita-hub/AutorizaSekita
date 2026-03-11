@@ -91,7 +91,7 @@ export default function Dashboard() {
           <Loader size={16} style={{ animation: 'spin 0.7s linear infinite' }} /> Carregando...
         </div>
       ) : (
-        <div style={styles.statsGrid}>
+        <div style={styles.statsGrid} className="stats-grid">
           {statCards.map(({ label, value, icon: Icon, color }, i) => (
             <div
               key={label}
@@ -114,7 +114,7 @@ export default function Dashboard() {
       )}
 
       {/* Content grid */}
-      <div style={styles.grid2}>
+      <div style={styles.grid2} className="grid-auto-fit">
         {/* Minhas recentes */}
         <section>
           <SectionHeader title="Minhas solicitações" onViewAll={() => navigate('/minhas-solicitacoes')} />

@@ -94,7 +94,7 @@ export default function Aprovacoes() {
 
       {/* Tabs + filters */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6 }} className="filter-scroll">
           <button
             className={`btn btn-sm ${filter === 'pendentes' ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setFilter('pendentes')}

@@ -98,7 +98,7 @@ export default function NovaSolicitacao() {
           <textarea className="input" rows={4} placeholder="Descreva o motivo e detalhes..." value={form.descricao} onChange={e => set('descricao', e.target.value)} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="grid-auto-fit">
           <div className="input-group">
             <label>Valor estimado (R$)</label>
             <input className="input" type="number" min="0" step="0.01" placeholder="0,00" value={form.valor} onChange={e => set('valor', e.target.value)} />
@@ -114,7 +114,7 @@ export default function NovaSolicitacao() {
 
         <div className="input-group">
           <label>Urgência</label>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }} className="urgencia-grid">
             {URGENCIAS.map(u => (
               <button key={u.value} type="button" onClick={() => set('urgencia', u.value)} style={{
                 flex: 1, padding: '9px 0', borderRadius: 'var(--radius-sm)',
@@ -129,7 +129,7 @@ export default function NovaSolicitacao() {
 
         {error && <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red-border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--red)' }}>{error}</div>}
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }} className="action-buttons">
           <button className="btn btn-outline" onClick={() => navigate(-1)}>Cancelar</button>
           <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
             {loading ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'white' }} /> : <Send size={14} />}

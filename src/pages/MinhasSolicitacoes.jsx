@@ -82,7 +82,7 @@ export default function MinhasSolicitacoes() {
             style={{ paddingLeft: 34 }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} className="filter-scroll">
           {STATUS_OPTS.map(o => (
             <button
               key={o.value}

@@ -21,9 +21,9 @@ export default function Login() {
   }
 
   return (
-    <div style={styles.root}>
+    <div style={styles.root} className="login-root">
       {/* Left — brand panel */}
-      <div style={styles.brandPanel}>
+      <div style={styles.brandPanel} className="login-brand-panel">
         <div style={styles.brandContent}>
           <div style={styles.logoWrap}>
             <img src="/logo-sekita.png" alt="Sekita Agronegócios" style={{ width: 160, objectFit: 'contain' }} />

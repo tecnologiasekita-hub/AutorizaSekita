@@ -227,3 +227,43 @@ a { color: inherit; text-decoration: none; }
 ::-webkit-scrollbar-track { background: var(--bg-2); }
 ::-webkit-scrollbar-thumb { background: rgba(26,92,56,0.2); border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(26,92,56,0.35); }
+
+/* ============================================================
+   Responsive — Mobile
+   ============================================================ */
+
+/* Hamburguer e logo mobile: escondidos no desktop */
+.menu-btn-mobile { display: none !important; }
+.logo-mobile     { display: none !important; }
+
+@media (max-width: 768px) {
+  /* Mostrar hamburguer e logo na topbar */
+  .menu-btn-mobile { display: flex !important; }
+  .logo-mobile     { display: block !important; }
+
+  /* Esconder sidebar fixa (desktop) */
+  .sidebar-only    { display: none !important; }
+
+  /* Padding do content menor */
+  .content-area    { padding: 16px 14px !important; }
+
+  /* Login: apenas o painel do form */
+  .login-brand-panel { display: none !important; }
+  .login-root        { grid-template-columns: 1fr !important; }
+
+  /* Grids viram coluna única */
+  .grid-auto-fit     { grid-template-columns: 1fr !important; }
+
+  /* Stats: 2 colunas */
+  .stats-grid        { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Filtros com scroll horizontal */
+  .filter-scroll     { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 4px; }
+
+  /* Botões de ação esticam */
+  .action-buttons    { flex-direction: column !important; }
+  .action-buttons .btn { width: 100% !important; justify-content: center !important; }
+
+  /* Urgência: 2 colunas */
+  .urgencia-grid     { display: grid !important; grid-template-columns: 1fr 1fr !important; }
+}
