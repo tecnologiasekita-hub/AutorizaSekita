@@ -1,60 +1,54 @@
-# ⚡ AutorizaSekita
+# AutorizaSekita
 
-Sistema interno de autorizações: Solicitante → Supervisor → Diretor.
+Sistema interno de autorizacoes com fluxo por papel:
+solicitante -> supervisor -> diretor.
 
----
+## Stack
 
-## 1. Supabase
+- React + Vite
+- Supabase Auth
+- Supabase Database + Realtime
+- Vercel para deploy
 
-1. Crie um projeto em [supabase.com](https://supabase.com)
-2. Vá em **SQL Editor → New Query**, cole `sql/sql-inicial.sql` e clique em **Run**
-3. Crie usuários em **Authentication → Users → Add User** (marque "Auto Confirm")
-4. Para definir supervisor/diretor, rode no SQL Editor:
-   ```sql
-   UPDATE profiles SET role = 'supervisor' WHERE email = 'ana@empresa.com';
-   UPDATE profiles SET role = 'diretor'    WHERE email = 'roberto@empresa.com';
-   ```
-5. Copie em **Project Settings → API**:
-   - `Project URL` → `VITE_SUPABASE_URL`
-   - `anon public` → `VITE_SUPABASE_ANON_KEY`
+## Fluxo atual
 
----
+- Solicitante cria uma solicitacao com status `pendente`
+- Supervisor aprova e move para `aprovado_supervisor`
+- Diretor aprova e finaliza como `aprovado`
+- Supervisor ou diretor podem rejeitar como `rejeitado`
 
-## 2. Vercel
+## Banco de dados real
 
-1. Suba o projeto no GitHub
-2. Importe no [vercel.com](https://vercel.com)
-3. Adicione as variáveis de ambiente:
-   ```
-   VITE_SUPABASE_URL      = https://xxxx.supabase.co
-   VITE_SUPABASE_ANON_KEY = eyJ...
-   ```
-4. Deploy ✅
+O arquivo [sql/sql-inicial.sql](./sql/sql-inicial.sql) foi alinhado com o schema que voce informou usar no Supabase:
 
----
+- `profiles`
+- `solicitacoes`
+- `notificacoes`
+- `historico`
+- trigger para criar profile ao criar usuario
+- realtime habilitado para `notificacoes`
+- RLS desligado, como no ambiente atual
 
-## 3. Local
+## Ambiente
+
+Crie um `.env` com:
+
+```bash
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-publica
+```
+
+## Rodando localmente
 
 ```bash
 npm install
-cp .env.example .env   # edite com suas chaves
 npm run dev
 ```
 
----
+## Observacao importante
 
-## Banco de dados (3 tabelas)
+Hoje o projeto esta coerente com o banco real que voce descreveu, mas a seguranca ainda depende muito do frontend porque o Supabase esta sem RLS. Para uso interno controlado isso pode funcionar, mas para endurecer o sistema o ideal e mover as regras criticas para policies ou RPCs.
 
-| Tabela | O que guarda |
-|---|---|
-| `profiles` | Usuários e seus papéis |
-| `solicitacoes` | Pedidos de autorização |
-| `notificacoes` | Notificações em tempo real |
+## Pendencia do briefing compartilhado
 
-## Papéis
-
-| Role | Cria | Aprova |
-|---|---|---|
-| `solicitante` | ✅ | ❌ |
-| `supervisor` | ✅ | ✅ 1ª etapa |
-| `diretor` | ✅ | ✅ Decisão final |
+Voce pediu para estruturar o projeto tambem com base no prompt compartilhado em `https://chatgpt.com/share/69b1b04d-48ac-8004-be95-acf5a026591a`, mas esse conteudo nao abriu daqui. Assim que voce colar esse briefing aqui, eu consigo ajustar a estrutura final com fidelidade ao que voce definiu la.

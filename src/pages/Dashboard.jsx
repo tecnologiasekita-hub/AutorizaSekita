@@ -5,100 +5,105 @@ import { supabase } from '../lib/supabase'
 import { FilePlus, Clock, CheckCircle, XCircle, TrendingUp, ArrowRight, Loader } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-
-const statusMap = {
-  pendente:           { label: 'Pendente',          cls: 'badge-pendente',   dot: 'dot-pendente' },
-  aprovado_supervisor:{ label: 'Aguarda Diretor',   cls: 'badge-supervisor', dot: 'dot-supervisor' },
-  aprovado:           { label: 'Aprovado',           cls: 'badge-aprovado',   dot: 'dot-aprovado' },
-  rejeitado:          { label: 'Rejeitado',          cls: 'badge-rejeitado',  dot: 'dot-rejeitado' },
-}
+import { STATUS, getStatusMeta, isPendingForDirector, isPendingForSupervisor } from '../lib/workflow'
 
 export default function Dashboard() {
   const { profile, isDirector, isSupervisor, canApprove } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats]   = useState(null)
+  const [stats, setStats] = useState(null)
   const [recent, setRecent] = useState([])
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { if (profile) fetchData() }, [profile])
+  useEffect(() => {
+    if (profile) fetchData()
+  }, [profile])
 
   async function fetchData() {
     setLoading(true)
 
-    const [{ data: minhas }, { data: rec }] = await Promise.all([
-      supabase.from('solicitacoes').select('status').eq('solicitante_id', profile.id),
-      supabase.from('solicitacoes')
-        .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-        .eq('solicitante_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(5),
-    ])
+    try {
+      const [{ data: minhas }, { data: rec }] = await Promise.all([
+        supabase.from('solicitacoes').select('status').eq('solicitante_id', profile.id),
+        supabase
+          .from('solicitacoes')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
+          .eq('solicitante_id', profile.id)
+          .order('created_at', { ascending: false })
+          .limit(5),
+      ])
 
-    if (minhas) {
-      setStats({
-        total:    minhas.length,
-        andamento:minhas.filter(s => ['pendente','aprovado_supervisor'].includes(s.status)).length,
-        aprovado: minhas.filter(s => s.status === 'aprovado').length,
-        rejeitado:minhas.filter(s => s.status === 'rejeitado').length,
-      })
+      if (minhas) {
+        setStats({
+          total: minhas.length,
+          andamento: minhas.filter(s => [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED].includes(s.status)).length,
+          aprovado: minhas.filter(s => s.status === STATUS.APPROVED).length,
+          rejeitado: minhas.filter(s => s.status === STATUS.REJECTED).length,
+        })
+      }
+
+      setRecent(rec || [])
+
+      if (canApprove) {
+        let query = supabase
+          .from('solicitacoes')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
+          .order('created_at', { ascending: false })
+          .limit(5)
+
+        if (isSupervisor) query = query.eq('status', STATUS.PENDING)
+        if (isDirector) query = query.in('status', [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED])
+
+        const { data: pend } = await query
+        setPending((pend || []).filter(item => {
+          if (isSupervisor) return isPendingForSupervisor(item.status)
+          if (isDirector) return isPendingForDirector(item.status)
+          return false
+        }))
+      }
+    } finally {
+      setLoading(false)
     }
-    setRecent(rec || [])
-
-    if (canApprove) {
-      let q = supabase.from('solicitacoes')
-        .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (isSupervisor)    q = q.eq('status', 'pendente')
-      else if (isDirector) q = q.in('status', ['pendente', 'aprovado_supervisor'])
-
-      const { data: pend } = await q
-      setPending(pend || [])
-    }
-
-    setLoading(false)
   }
 
   const statCards = [
-    { label: 'Total enviados', value: stats?.total    ?? 0, icon: TrendingUp,  color: 'var(--accent)' },
-    { label: 'Em andamento',   value: stats?.andamento ?? 0, icon: Clock,       color: 'var(--yellow)' },
-    { label: 'Aprovados',      value: stats?.aprovado  ?? 0, icon: CheckCircle, color: 'var(--green)' },
-    { label: 'Rejeitados',     value: stats?.rejeitado ?? 0, icon: XCircle,     color: 'var(--red)' },
+    { label: 'Total enviados', value: stats?.total ?? 0, icon: TrendingUp, color: 'var(--accent)' },
+    { label: 'Em andamento', value: stats?.andamento ?? 0, icon: Clock, color: 'var(--yellow)' },
+    { label: 'Aprovados', value: stats?.aprovado ?? 0, icon: CheckCircle, color: 'var(--green)' },
+    { label: 'Rejeitados', value: stats?.rejeitado ?? 0, icon: XCircle, color: 'var(--red)' },
   ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }} className="fade-in">
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, fontWeight: 400, color: 'var(--green-brand)', color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            OlÃ¡, {profile?.nome?.split(' ')[0]} ðŸ‘‹
+          <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Olá, {profile?.nome?.split(' ')[0]}
           </h1>
           <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 4 }}>
             {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/nova-solicitacao')}>
-          <FilePlus size={16} /> Nova SolicitaÃ§Ã£o
+          <FilePlus size={16} /> Nova solicitação
         </button>
       </div>
 
-      {/* Stat cards */}
       {loading ? (
         <div style={{ display: 'flex', gap: 10, color: 'var(--text-3)', fontSize: 14 }}>
           <Loader size={16} style={{ animation: 'spin 0.7s linear infinite' }} /> Carregando...
         </div>
       ) : (
         <div style={styles.statsGrid} className="stats-grid">
-          {statCards.map(({ label, value, icon: Icon, color }, i) => (
+          {statCards.map(({ label, value, icon: Icon, color }, index) => (
             <div
               key={label}
               className="card"
               style={{
-                display: 'flex', alignItems: 'center', gap: 16,
-                animation: `fade-in 0.3s ease ${i * 0.05}s both`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                animation: `fade-in 0.3s ease ${index * 0.05}s both`,
               }}
             >
               <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color}15`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -113,29 +118,26 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Content grid */}
       <div style={styles.grid2} className="grid-auto-fit">
-        {/* Minhas recentes */}
         <section>
-          <SectionHeader title="Minhas solicitaÃ§Ãµes" onViewAll={() => navigate('/minhas-solicitacoes')} />
+          <SectionHeader title="Minhas solicitações" onViewAll={() => navigate('/minhas-solicitacoes')} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recent.length === 0 ? (
-              <EmptyCard icon={FilePlus} text="Nenhuma solicitaÃ§Ã£o ainda" />
-            ) : recent.map(s => (
-              <SolicitacaoRow key={s.id} s={s} onClick={() => navigate(`/solicitacao/${s.id}`)} />
+              <EmptyCard icon={FilePlus} text="Nenhuma solicitação ainda" />
+            ) : recent.map(item => (
+              <SolicitacaoRow key={item.id} item={item} onClick={() => navigate(`/solicitacao/${item.id}`)} />
             ))}
           </div>
         </section>
 
-        {/* PendÃªncias de aprovaÃ§Ã£o */}
         {canApprove && (
           <section>
-            <SectionHeader title="Aguardando sua aprovaÃ§Ã£o" onViewAll={() => navigate('/aprovacoes')} badge={pending.length} />
+            <SectionHeader title="Aguardando sua aprovação" onViewAll={() => navigate('/aprovacoes')} badge={pending.length} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {pending.length === 0 ? (
-                <EmptyCard icon={CheckCircle} text="Nenhuma pendÃªncia ðŸŽ‰" />
-              ) : pending.map(s => (
-                <SolicitacaoRow key={s.id} s={s} onClick={() => navigate(`/solicitacao/${s.id}`)} showSolicitante />
+                <EmptyCard icon={CheckCircle} text="Nenhuma pendência no momento" />
+              ) : pending.map(item => (
+                <SolicitacaoRow key={item.id} item={item} onClick={() => navigate(`/solicitacao/${item.id}`)} showSolicitante />
               ))}
             </div>
           </section>
@@ -172,30 +174,37 @@ function EmptyCard({ icon: Icon, text }) {
   )
 }
 
-function SolicitacaoRow({ s, onClick, showSolicitante }) {
-  const st = statusMap[s.status] || statusMap.pendente
+function SolicitacaoRow({ item, onClick, showSolicitante }) {
+  const status = getStatusMeta(item.status)
+
   return (
     <div
       className="card"
       onClick={onClick}
       style={{ cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.background = 'var(--bg-card-2)' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
+      onMouseEnter={event => {
+        event.currentTarget.style.borderColor = 'var(--border-light)'
+        event.currentTarget.style.background = 'var(--bg-card-2)'
+      }}
+      onMouseLeave={event => {
+        event.currentTarget.style.borderColor = 'var(--border)'
+        event.currentTarget.style.background = 'var(--bg-card)'
+      }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {s.titulo}
+            {item.titulo}
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {showSolicitante && <span>{s.profiles?.nome} Â·</span>}
-            <span>{format(new Date(s.created_at), "dd/MM/yyyy 'Ã s' HH:mm")}</span>
-            {s.valor && <span>Â· R$ {Number(s.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
+            {showSolicitante && <span>{item.profiles?.nome}</span>}
+            <span>{format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm")}</span>
+            {item.valor && <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
           </div>
         </div>
-        <span className={`badge ${st.cls}`}>
-          <span className={`status-dot ${st.dot}`} />
-          {st.label}
+        <span className={`badge ${status.cls}`}>
+          <span className={`status-dot ${status.dot}`} />
+          {status.label}
         </span>
       </div>
     </div>
