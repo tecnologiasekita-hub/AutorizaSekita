@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import logoSekita from '../assets/logo-sekita.png'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
@@ -26,7 +27,7 @@ export default function Login() {
       <div style={styles.brandPanel} className="login-brand-panel">
         <div style={styles.brandContent}>
           <div style={styles.logoWrap}>
-            <img src="/logo-sekita.png" alt="Sekita Agronegócios" style={{ width: 160, objectFit: 'contain' }} />
+            <img src={logoSekita} alt="Sekita Agronegócios" style={{ width: 160, objectFit: 'contain' }} />
           </div>
 
           <div style={styles.tagline}>
