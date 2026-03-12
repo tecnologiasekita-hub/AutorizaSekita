@@ -25,13 +25,10 @@ export default function NovaSolicitacao() {
   const { profile } = useAuth()
   const navigate     = useNavigate()
   const fileInputRef = useRef(null)
-  const catRef       = useRef(null)
 
   const [loading,        setLoading]        = useState(false)
   const [loadingSetup,   setLoadingSetup]   = useState(true)
   const [error,          setError]          = useState('')
-  const [categorias,     setCategorias]     = useState([])
-  const [showCatList,    setShowCatList]    = useState(false)
   const [arquivos,       setArquivos]       = useState([])
   const [supervisorInfo, setSupervisorInfo] = useState(null)
   const [diretores,      setDiretores]      = useState([])
@@ -62,20 +59,6 @@ export default function NovaSolicitacao() {
           setDiretores(dirs || [])
         }
 
-        // Busca categorias já usadas
-        const { data: cats } = await supabase
-          .from('solicitacoes')
-          .select('categoria')
-          .not('categoria', 'is', null)
-          .neq('categoria', '')
-          .order('created_at', { ascending: false })
-          .limit(100)
-
-        if (cats) {
-          const uniq = [...new Set(cats.map(c => c.categoria).filter(Boolean))]
-          setCategorias(uniq.slice(0, 20))
-        }
-
         // Solicitante: busca supervisor vinculado (2 queries separadas — evita problema de FK name)
         if (!isSupervisor && !isDirector) {
           const { data: myProfile } = await supabase
@@ -101,14 +84,6 @@ export default function NovaSolicitacao() {
     }
     if (profile) load()
   }, [profile])
-
-  useEffect(() => {
-    function handler(e) {
-      if (catRef.current && !catRef.current.contains(e.target)) setShowCatList(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
 
   function setField(key, value) {
     setForm(f => ({ ...f, [key]: value }))
@@ -207,8 +182,10 @@ export default function NovaSolicitacao() {
         const path = `${data.id}/${crypto.randomUUID()}.${ext}`
         const { error: upErr } = await supabase.storage
           .from('anexos').upload(path, file, { contentType: file.type })
-        if (!upErr) {
-          await supabase.from('anexos').insert({
+        if (upErr) {
+          console.error('Erro no upload do arquivo:', file.name, upErr)
+        } else {
+          const { error: dbErr } = await supabase.from('anexos').insert({
             solicitacao_id: data.id,
             nome_arquivo:   file.name,
             storage_path:   path,
@@ -216,6 +193,7 @@ export default function NovaSolicitacao() {
             tamanho_bytes:  file.size,
             uploaded_by:    profile.id,
           })
+          if (dbErr) console.error('Erro ao salvar anexo no banco:', file.name, dbErr)
         }
       }
 
@@ -231,10 +209,6 @@ export default function NovaSolicitacao() {
       setLoading(false)
     }
   }
-
-  const catFiltradas = categorias.filter(c =>
-    c.toLowerCase().includes(form.categoria.toLowerCase()) && c !== form.categoria
-  )
 
   if (loadingSetup) {
     return (
@@ -337,30 +311,17 @@ export default function NovaSolicitacao() {
               onChange={e => { const v = e.target.value; if (v === '' || parseFloat(v) >= 0) setField('valor', v) }} />
           </div>
 
-          <div className="input-group" ref={catRef} style={{ position: 'relative' }}>
+          <div className="input-group">
             <label>Categoria</label>
-            <input className="input" placeholder="Ex: Compras, Viagens..." value={form.categoria}
-              autoComplete="off"
-              onChange={e => { setField('categoria', e.target.value); setShowCatList(true) }}
-              onFocus={() => setShowCatList(true)} />
-            {showCatList && catFiltradas.length > 0 && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                background: 'var(--bg-card)', border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-sm)', boxShadow: 'var(--shadow-lg)',
-                marginTop: 2, maxHeight: 160, overflowY: 'auto',
-              }}>
-                {catFiltradas.map(c => (
-                  <div key={c}
-                    style={{ padding: '9px 13px', fontSize: 13, cursor: 'pointer', color: 'var(--text-2)' }}
-                    onMouseDown={() => { setField('categoria', c); setShowCatList(false) }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    {c}
-                  </div>
-                ))}
-              </div>
-            )}
+            <select className="input" value={form.categoria} onChange={e => setField('categoria', e.target.value)}
+              style={{ cursor: 'pointer' }}>
+              <option value="">Selecione...</option>
+              <option value="Processo">Processo</option>
+              <option value="Contrato">Contrato</option>
+              <option value="Serviço">Serviço</option>
+              <option value="Compra">Compra</option>
+              <option value="Pagamento">Pagamento</option>
+            </select>
           </div>
         </div>
 
