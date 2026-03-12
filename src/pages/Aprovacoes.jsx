@@ -23,28 +23,35 @@ export default function Aprovacoes() {
     setLoading(true)
     try {
       if (isSupervisor) {
-        // Supervisor vê APENAS solicitações de usuários vinculados a ele (supervisor_id = profile.id)
+        // 1. Busca IDs dos solicitantes vinculados a este supervisor
+        const { data: subordinados } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('supervisor_id', profile.id)
+
+        const ids = (subordinados || []).map(p => p.id)
+
+        if (ids.length === 0) {
+          setSolicitacoes([])
+          return
+        }
+
+        // 2. Busca solicitações apenas desses solicitantes
         let query = supabase
           .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento, supervisor_id)')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
+          .in('solicitante_id', ids)
           .order('created_at', { ascending: false })
 
         if (filter === 'pendentes') {
-          // Apenas pendentes dos seus funcionários
-          query = query
-            .eq('status', 'pendente')
-            .eq('profiles.supervisor_id', profile.id)
+          query = query.eq('status', 'pendente')
         } else {
-          // Histórico: solicitações que ele mesmo aprovou/rejeitou
-          query = query.eq('supervisor_id', profile.id).neq('status', 'pendente')
+          // Histórico: tudo que ele aprovou/rejeitou (supervisor_id = ele) ou que seus subordinados criaram
+          query = query.neq('status', 'pendente')
         }
 
         const { data } = await query
-        // Filtro extra no JS para garantir — solicitações de quem tem supervisor_id = profile.id
-        const filtered = (data || []).filter(item =>
-          filter !== 'pendentes' || item.profiles?.supervisor_id === profile.id
-        )
-        setSolicitacoes(filtered)
+        setSolicitacoes(data || [])
 
       } else if (isDirector) {
         // Diretor vê somente as solicitações onde ele foi selecionado
