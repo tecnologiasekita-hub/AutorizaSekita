@@ -31,9 +31,9 @@ export default function Layout() {
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/nova-solicitacao', icon: FilePlus, label: 'Nova solicitação' },
-    { to: '/minhas-solicitacoes', icon: FileText, label: 'Minhas solicitações' },
-    ...(canApprove ? [{ to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações' }] : []),
+    { to: '/nova-solicitacao', icon: FilePlus, label: 'Nova solicitaÃ§Ã£o' },
+    { to: '/minhas-solicitacoes', icon: FileText, label: 'Minhas solicitaÃ§Ãµes' },
+    ...(canApprove ? [{ to: '/aprovacoes', icon: CheckSquare, label: 'AprovaÃ§Ãµes' }] : []),
   ]
 
   const roleClass = { solicitante: 'badge-solicitante', supervisor: 'badge-supervisor', diretor: 'badge-diretor' }
@@ -42,7 +42,7 @@ export default function Layout() {
     return (
       <aside style={styles.sidebar}>
         <div style={styles.logoWrap}>
-          <img src="/logo-sekita.png" alt="Sekita Agronegócios" style={{ width: 130, objectFit: 'contain' }} />
+          <img src="/logo-sekita.png" alt="Sekita AgronegÃ³cios" style={{ width: 130, objectFit: 'contain' }} />
           <button onClick={() => setSidebarOpen(false)} style={{ ...styles.closeBtn, display: sidebarOpen ? 'flex' : 'none' }}>
             <X size={18} color="rgba(255,255,255,0.7)" />
           </button>
@@ -121,12 +121,12 @@ export default function Layout() {
             {showNotif && (
               <div style={styles.notifPanel} className="fade-in">
                 <div style={styles.notifHeader}>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Notificações</span>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>NotificaÃ§Ãµes</span>
                   <button className="btn btn-ghost btn-sm" style={{ padding: '3px 5px' }} onClick={() => setShowNotif(false)}><X size={14} /></button>
                 </div>
                 <div style={styles.notifList}>
                   {notifications.length === 0 ? (
-                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Nenhuma notificação</div>
+                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Nenhuma notificaÃ§Ã£o</div>
                   ) : notifications.map(notification => (
                     <div
                       key={notification.id}
@@ -138,7 +138,7 @@ export default function Layout() {
                     >
                       <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{notification.mensagem}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
-                        {format(new Date(notification.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                        {format(new Date(notification.created_at), "dd/MM 'Ã s' HH:mm", { locale: ptBR })}
                       </div>
                     </div>
                   ))}
