@@ -64,14 +64,24 @@ export default function NovaSolicitacao() {
           setCategorias(uniq.slice(0, 20))
         }
 
-        // Solicitante: busca supervisor vinculado
+        // Solicitante: busca supervisor vinculado (2 queries separadas — evita problema de FK name)
         if (!isSupervisor && !isDirector) {
-          const { data: p } = await supabase
+          const { data: myProfile } = await supabase
             .from('profiles')
-            .select('supervisor_id, supervisor:profiles!profiles_supervisor_id_fkey(id, nome, departamento)')
+            .select('supervisor_id')
             .eq('id', profile.id)
             .single()
-          setSupervisorInfo(p?.supervisor || null)
+
+          if (myProfile?.supervisor_id) {
+            const { data: sup } = await supabase
+              .from('profiles')
+              .select('id, nome, departamento')
+              .eq('id', myProfile.supervisor_id)
+              .single()
+            setSupervisorInfo(sup || null)
+          } else {
+            setSupervisorInfo(null)
+          }
         }
       } finally {
         setLoadingSetup(false)
