@@ -23,20 +23,28 @@ export default function Aprovacoes() {
     setLoading(true)
     try {
       if (isSupervisor) {
-        // Supervisor vê todas as solicitações com status pendente (ou histórico)
+        // Supervisor vê APENAS solicitações de usuários vinculados a ele (supervisor_id = profile.id)
         let query = supabase
           .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento, supervisor_id)')
           .order('created_at', { ascending: false })
 
         if (filter === 'pendentes') {
-          query = query.eq('status', 'pendente')
+          // Apenas pendentes dos seus funcionários
+          query = query
+            .eq('status', 'pendente')
+            .eq('profiles.supervisor_id', profile.id)
         } else {
+          // Histórico: solicitações que ele mesmo aprovou/rejeitou
           query = query.eq('supervisor_id', profile.id).neq('status', 'pendente')
         }
 
         const { data } = await query
-        setSolicitacoes(data || [])
+        // Filtro extra no JS para garantir — solicitações de quem tem supervisor_id = profile.id
+        const filtered = (data || []).filter(item =>
+          filter !== 'pendentes' || item.profiles?.supervisor_id === profile.id
+        )
+        setSolicitacoes(filtered)
 
       } else if (isDirector) {
         // Diretor vê somente as solicitações onde ele foi selecionado

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Send, Paperclip, X, FileText, Image, File } from 'lucide-react'
+import { ArrowLeft, Send, Paperclip, X, FileText, Image, File, AlertCircle } from 'lucide-react'
 import { STATUS, URGENCY, URGENCY_META, formatBytes } from '../lib/workflow'
 
 const URGENCIAS = [
@@ -23,46 +23,81 @@ function fileIcon(mime) {
 
 export default function NovaSolicitacao() {
   const { profile } = useAuth()
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
   const fileInputRef = useRef(null)
 
-  const [loading,      setLoading]      = useState(false)
-  const [error,        setError]        = useState('')
-  const [diretores,    setDiretores]    = useState([])
-  const [categorias,   setCategorias]   = useState([])
-  const [showCatList,  setShowCatList]  = useState(false)
-  const [arquivos,     setArquivos]     = useState([])  // { file, preview }
+  const [loading,       setLoading]       = useState(false)
+  const [loadingSetup,  setLoadingSetup]  = useState(true)
+  const [error,         setError]         = useState('')
+  const [diretores,     setDiretores]     = useState([])
+  const [categorias,    setCategorias]    = useState([])
+  const [showCatList,   setShowCatList]   = useState(false)
+  const [arquivos,      setArquivos]      = useState([])
+  const [supervisorInfo, setSupervisorInfo] = useState(null) // { id, nome } do supervisor vinculado
   const catRef = useRef(null)
 
   const [form, setForm] = useState({
-    titulo:          '',
-    descricao:       '',
-    valor:           '',
-    categoria:       '',
-    urgencia:        URGENCY.NORMAL,
-    diretoresSel:    [],
+    titulo:       '',
+    descricao:    '',
+    valor:        '',
+    categoria:    '',
+    urgencia:     URGENCY.NORMAL,
+    diretoresSel: [],
   })
 
-  // Busca diretores e categorias recentes
+  const isSupervisor = profile?.role === 'supervisor'
+  const isDirector   = profile?.role === 'diretor'
+
+  // Carrega diretores, categorias e supervisor vinculado
   useEffect(() => {
     async function load() {
-      const [{ data: dirs }, { data: cats }] = await Promise.all([
-        supabase.from('profiles').select('id, nome, departamento').eq('role', 'diretor').order('nome'),
-        supabase.from('solicitacoes')
-          .select('categoria')
-          .not('categoria', 'is', null)
-          .neq('categoria', '')
-          .order('created_at', { ascending: false })
-          .limit(100),
-      ])
-      setDiretores(dirs || [])
-      if (cats) {
-        const uniq = [...new Set(cats.map(c => c.categoria).filter(Boolean))]
-        setCategorias(uniq.slice(0, 20))
+      setLoadingSetup(true)
+      try {
+        const queries = [
+          supabase.from('profiles').select('id, nome, departamento').eq('role', 'diretor').order('nome'),
+          supabase.from('solicitacoes')
+            .select('categoria')
+            .not('categoria', 'is', null)
+            .neq('categoria', '')
+            .order('created_at', { ascending: false })
+            .limit(100),
+        ]
+
+        // Solicitante: busca o supervisor vinculado
+        if (!isSupervisor && !isDirector) {
+          queries.push(
+            supabase.from('profiles')
+              .select('supervisor_id, supervisor:profiles!profiles_supervisor_id_fkey(id, nome, departamento)')
+              .eq('id', profile.id)
+              .single()
+          )
+        }
+
+        const results = await Promise.all(queries)
+
+        const [{ data: dirs }, { data: cats }] = results
+        setDiretores(dirs || [])
+
+        if (cats) {
+          const uniq = [...new Set(cats.map(c => c.categoria).filter(Boolean))]
+          setCategorias(uniq.slice(0, 20))
+        }
+
+        if (!isSupervisor && !isDirector && results[2]) {
+          const { data: profileData } = results[2]
+          if (profileData?.supervisor) {
+            setSupervisorInfo(profileData.supervisor)
+          } else {
+            setSupervisorInfo(null)
+          }
+        }
+      } finally {
+        setLoadingSetup(false)
       }
     }
-    load()
-  }, [])
+
+    if (profile) load()
+  }, [profile])
 
   // Fecha dropdown categoria ao clicar fora
   useEffect(() => {
@@ -96,53 +131,54 @@ export default function NovaSolicitacao() {
       }
       return true
     })
-    setArquivos(prev => [
-      ...prev,
-      ...novos.map(file => ({ file, id: crypto.randomUUID() })),
-    ])
+    setArquivos(prev => [...prev, ...novos.map(file => ({ file, id: crypto.randomUUID() }))])
   }
 
   function removeArquivo(id) {
     setArquivos(prev => prev.filter(a => a.id !== id))
   }
 
-  // Fluxo visual conforme papel
-  const isSupervisor = profile?.role === 'supervisor'
-  const isDirector   = profile?.role === 'diretor'
-
+  // Fluxo visual
   const flowSteps = isDirector
     ? [{ label: 'Você cria', active: true }, { label: 'Autoaprovado', green: true }]
     : isSupervisor
       ? [{ label: 'Você cria', active: true }, { label: 'Diretor(es)' }, { label: 'Concluído', green: true }]
-      : [{ label: 'Você cria', active: true }, { label: 'Supervisor' }, { label: 'Diretor(es)' }, { label: 'Concluído', green: true }]
+      : [{ label: 'Você cria', active: true }, { label: supervisorInfo?.nome || 'Supervisor' }, { label: 'Diretor(es)' }, { label: 'Concluído', green: true }]
 
-  // Necessário selecionar diretores exceto se for o próprio diretor criando
-  const needsDiretores = !isDirector
+  const needsDiretores  = !isDirector
+  const needsSupervisor = !isSupervisor && !isDirector
 
   async function handleSubmit() {
-    if (!form.titulo.trim())   return setError('Título é obrigatório.')
+    if (!form.titulo.trim())    return setError('Título é obrigatório.')
     if (!form.descricao.trim()) return setError('Descrição é obrigatória.')
     if (form.valor !== '' && parseFloat(form.valor) < 0) return setError('Valor não pode ser negativo.')
-    if (needsDiretores && form.diretoresSel.length === 0)
+
+    // Bloqueia se solicitante não tiver supervisor vinculado
+    if (needsSupervisor && !supervisorInfo) {
+      return setError('Você não possui um supervisor vinculado. Solicite ao administrador que vincule um supervisor ao seu perfil no sistema.')
+    }
+
+    if (needsDiretores && form.diretoresSel.length === 0) {
       return setError('Selecione ao menos um diretor.')
+    }
 
     setLoading(true)
     try {
-      // Monta payload
       const payload = {
-        titulo:        form.titulo.trim(),
-        descricao:     form.descricao.trim(),
-        valor:         form.valor !== '' ? parseFloat(form.valor) : null,
-        categoria:     form.categoria.trim() || null,
-        urgencia:      form.urgencia,
+        titulo:         form.titulo.trim(),
+        descricao:      form.descricao.trim(),
+        valor:          form.valor !== '' ? parseFloat(form.valor) : null,
+        categoria:      form.categoria.trim() || null,
+        urgencia:       form.urgencia,
         solicitante_id: profile.id,
-        status:        isDirector
+        status: isDirector
           ? STATUS.APPROVED
           : isSupervisor
             ? STATUS.SUPERVISOR_APPROVED
             : STATUS.PENDING,
       }
 
+      // Supervisor criando: registra ele mesmo como supervisor
       if (isSupervisor) {
         payload.supervisor_id          = profile.id
         payload.supervisor_aprovado_em = new Date().toISOString()
@@ -165,14 +201,27 @@ export default function NovaSolicitacao() {
             status:         'pendente',
           }))
         )
+      }
 
-        // Notifica os diretores (apenas se já foi aprovado pelo supervisor ou é supervisor criando)
-        if (isSupervisor) {
+      // ── Notificações ──────────────────────────────────────────
+
+      if (!isSupervisor && !isDirector) {
+        // Solicitante criou → notifica o supervisor vinculado
+        await supabase.from('notificacoes').insert({
+          usuario_id:     supervisorInfo.id,
+          solicitacao_id: data.id,
+          mensagem:       `Nova solicitação de ${profile.nome} aguarda sua aprovação: "${data.titulo}"`,
+        })
+      }
+
+      if (isSupervisor) {
+        // Supervisor criou → notifica os diretores selecionados
+        if (form.diretoresSel.length > 0) {
           await supabase.from('notificacoes').insert(
             form.diretoresSel.map(did => ({
               usuario_id:     did,
               solicitacao_id: data.id,
-              mensagem:       `Nova solicitação aguardando sua aprovação: "${data.titulo}"`,
+              mensagem:       `Nova solicitação de ${profile.nome} aguarda sua aprovação: "${data.titulo}"`,
             }))
           )
         }
@@ -205,7 +254,6 @@ export default function NovaSolicitacao() {
         descricao:      `Solicitação criada por ${profile.nome}`,
       })
 
-      // Se supervisor criou, registra auto-aprovação supervisor no histórico
       if (isSupervisor) {
         await supabase.from('historico').insert({
           solicitacao_id: data.id,
@@ -224,8 +272,17 @@ export default function NovaSolicitacao() {
     c.toLowerCase().includes(form.categoria.toLowerCase()) && c !== form.categoria
   )
 
+  if (loadingSetup) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
+        <div className="spinner" style={{ width: 28, height: 28 }} />
+      </div>
+    )
+  }
+
   return (
     <div style={{ maxWidth: 660, margin: '0 auto' }} className="fade-in">
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>
@@ -241,6 +298,26 @@ export default function NovaSolicitacao() {
         </div>
       </div>
 
+      {/* Aviso: sem supervisor vinculado */}
+      {needsSupervisor && !supervisorInfo && (
+        <div style={{
+          display: 'flex', gap: 12, alignItems: 'flex-start',
+          background: 'var(--red-bg)', border: '1px solid var(--red-border)',
+          borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 20,
+        }}>
+          <AlertCircle size={18} style={{ color: 'var(--red)', flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)', marginBottom: 4 }}>
+              Supervisor não vinculado
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--red)', lineHeight: 1.6 }}>
+              Você não possui um supervisor vinculado ao seu perfil. Sem isso, não é possível enviar solicitações.
+              Solicite ao administrador que preencha o campo <strong>supervisor_id</strong> na tabela <strong>profiles</strong> do Supabase.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fluxo visual */}
       <div className="card" style={{ marginBottom: 20, background: 'var(--green-pale)', borderColor: 'var(--green-pale-2)' }}>
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-brand)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
@@ -254,6 +331,14 @@ export default function NovaSolicitacao() {
             </div>
           ))}
         </div>
+        {/* Mostra nome do supervisor vinculado */}
+        {needsSupervisor && supervisorInfo && (
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-2)' }}>
+            Supervisor responsável:{' '}
+            <strong style={{ color: 'var(--green-brand)' }}>{supervisorInfo.nome}</strong>
+            {supervisorInfo.departamento && ` · ${supervisorInfo.departamento}`}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -375,8 +460,7 @@ export default function NovaSolicitacao() {
                       key={d.id}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '10px 13px',
-                        borderRadius: 'var(--radius-sm)',
+                        padding: '10px 13px', borderRadius: 'var(--radius-sm)',
                         border: `1px solid ${sel ? 'var(--accent)' : 'var(--border)'}`,
                         background: sel ? 'var(--accent-dim)' : 'var(--bg-2)',
                         cursor: 'pointer', transition: 'all 0.15s',
@@ -411,7 +495,12 @@ export default function NovaSolicitacao() {
 
         {/* Anexos */}
         <div className="input-group">
-          <label>Anexos <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-3)' }}>(PDF, imagens — máx. 10 MB cada)</span></label>
+          <label>
+            Anexos{' '}
+            <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-3)' }}>
+              (PDF, imagens — máx. 10 MB cada)
+            </span>
+          </label>
           <input
             ref={fileInputRef}
             type="file"
@@ -436,9 +525,8 @@ export default function NovaSolicitacao() {
                 return (
                   <div key={id} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 12px',
-                    background: 'var(--bg-2)', borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
+                    padding: '8px 12px', background: 'var(--bg-2)',
+                    borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
                   }}>
                     <Icon size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -476,7 +564,11 @@ export default function NovaSolicitacao() {
         {/* Ações */}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }} className="action-buttons">
           <button className="btn btn-outline" onClick={() => navigate(-1)}>Cancelar</button>
-          <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+          <button
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={loading || (needsSupervisor && !supervisorInfo)}
+          >
             {loading
               ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'white' }} />
               : <Send size={14} />}
