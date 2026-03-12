@@ -158,11 +158,11 @@ export default function Layout() {
 }
 
 const styles = {
-  root: { display: 'flex', minHeight: '100vh', background: 'var(--bg)' },
+  root: { display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg)' },
   sidebarDesktop: { display: 'flex', flexShrink: 0 },
   sidebarMobile: { position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 200, width: 240 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199 },
-  sidebar: { width: 224, background: 'var(--green-brand)', display: 'flex', flexDirection: 'column', padding: '0 0 16px', height: '100vh', overflowY: 'auto' },
+  sidebar: { width: 224, background: 'var(--green-brand)', display: 'flex', flexDirection: 'column', padding: '0 0 16px', height: '100vh', overflowY: 'auto', position: 'sticky', top: 0 },
   logoWrap: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: 8 },
   closeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 },
   navLabel: { fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 18px 4px' },
@@ -175,7 +175,7 @@ const styles = {
   topbar: { height: 54, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 8, background: 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(26,92,56,0.06)' },
   menuBtn: { padding: '6px 8px' },
   mobileLogo: { height: 28, objectFit: 'contain' },
-  content: { flex: 1, padding: '24px 20px', overflowY: 'auto', maxWidth: 1100, width: '100%', margin: '0 auto' },
+  content: { flex: 1, padding: '24px 20px', overflowY: 'auto', maxWidth: 1100, width: '100%', margin: '0 auto', height: '100%' },
   notifPanel: { position: 'fixed', right: 12, top: 62, width: 'min(340px, calc(100vw - 24px))', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 300, overflow: 'hidden' },
   notifHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' },
   notifList: { maxHeight: '60vh', overflowY: 'auto' },
