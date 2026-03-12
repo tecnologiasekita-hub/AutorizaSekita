@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import logoSekita from '../assets/logo-sekita.png'
 import { LayoutDashboard, FilePlus, FileText, CheckSquare, User, LogOut, Bell, X, Menu } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -42,7 +43,7 @@ export default function Layout() {
     return (
       <aside style={styles.sidebar}>
         <div style={styles.logoWrap}>
-          <img src="/logo-sekita.png" alt="Sekita Agronegócios" style={{ width: 130, objectFit: 'contain' }} />
+          <img src={logoSekita} alt="Sekita Agronegócios" style={{ width: 130, objectFit: 'contain' }} />
           <button onClick={() => setSidebarOpen(false)} style={{ ...styles.closeBtn, display: sidebarOpen ? 'flex' : 'none' }}>
             <X size={18} color="rgba(255,255,255,0.7)" />
           </button>
@@ -99,7 +100,7 @@ export default function Layout() {
             <Menu size={20} />
           </button>
 
-          <img src="/logo-sekita.png" alt="Sekita" className="logo-mobile" style={styles.mobileLogo} />
+          <img src={logoSekita} alt="Sekita" className="logo-mobile" style={styles.mobileLogo} />
 
           <div style={{ flex: 1 }} />
 
