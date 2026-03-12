@@ -15,8 +15,9 @@ export default function Aprovacoes() {
   const [search,          setSearch]          = useState('')
   const [filter,          setFilter]          = useState('pendentes')
   const [sortByUrgencia,  setSortByUrgencia]  = useState(false)
+  const [deptoFilter,     setDeptoFilter]     = useState('')
 
-  useEffect(() => { if (profile) fetchSolicitacoes() }, [profile, filter])
+  useEffect(() => { if (profile) fetchSolicitacoes() }, [profile, filter, deptoFilter])
 
   async function fetchSolicitacoes() {
     if (!profile) return
@@ -50,6 +51,7 @@ export default function Aprovacoes() {
           query = query.neq('status', 'pendente')
         }
 
+        if (deptoFilter) query = query.eq('departamento_origem', deptoFilter)
         const { data } = await query
         setSolicitacoes(data || [])
 
@@ -73,6 +75,7 @@ export default function Aprovacoes() {
           query = query.neq('status', 'pendente')
         }
 
+        if (deptoFilter) query = query.eq('solicitacao.departamento_origem', deptoFilter)
         const { data } = await query
         // Normaliza estrutura para ter o mesmo shape
         const flat = (data || [])
@@ -93,7 +96,10 @@ export default function Aprovacoes() {
     }
   }
 
-  let filtered = solicitacoes.filter(item =>
+  let filtered = solicitacoes.filter(item => {
+    if (deptoFilter && item.departamento_origem !== deptoFilter) return false
+    return true
+  }).filter(item =>
     item.titulo.toLowerCase().includes(search.toLowerCase()) ||
     (item.profiles?.nome || '').toLowerCase().includes(search.toLowerCase())
   )
@@ -176,6 +182,25 @@ export default function Aprovacoes() {
               style={{ paddingLeft: 32, width: 200 }}
             />
           </div>
+          <select
+            className="input"
+            value={deptoFilter}
+            onChange={e => setDeptoFilter(e.target.value)}
+            style={{ cursor: 'pointer', width: 200 }}
+          >
+            <option value="">Todos os departamentos</option>
+            <option value="TI">TI</option>
+            <option value="Controladoria">Controladoria</option>
+            <option value="Tesouraria">Tesouraria</option>
+            <option value="Ambiental">Ambiental</option>
+            <option value="Recursos Humanos">Recursos Humanos</option>
+            <option value="Departamento Pessoal">Departamento Pessoal</option>
+            <option value="Contas a Pagar">Contas a Pagar</option>
+            <option value="Compras">Compras</option>
+            <option value="Assinatura Digital">Assinatura Digital</option>
+            <option value="Jurídico">Jurídico</option>
+            <option value="Financeiro">Financeiro</option>
+          </select>
         </div>
       </div>
 

@@ -281,6 +281,7 @@ export default function DetalhesSolicitacao() {
             <InfoRow icon={DollarSign} label="Valor"
               value={`R$ ${Number(sol.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
           )}
+          {sol.departamento_origem && <InfoRow icon={Tag} label="Departamento de origem" value={sol.departamento_origem} />}
           {sol.categoria && <InfoRow icon={Tag} label="Categoria" value={sol.categoria} />}
           <InfoRow icon={AlertTriangle} label="Urgência"
             value={urgency?.label || 'Normal'}

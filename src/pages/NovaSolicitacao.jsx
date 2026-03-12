@@ -35,11 +35,12 @@ export default function NovaSolicitacao() {
   const [dirSel,         setDirSel]         = useState([])
 
   const [form, setForm] = useState({
-    titulo:    '',
-    descricao: '',
-    valor:     '',
-    categoria: '',
-    urgencia:  URGENCY.NORMAL,
+    titulo:              '',
+    descricao:           '',
+    valor:               '',
+    categoria:           '',
+    urgencia:            URGENCY.NORMAL,
+    departamento_origem: '',
   })
 
   const isSupervisor = profile?.role === 'supervisor'
@@ -129,7 +130,8 @@ export default function NovaSolicitacao() {
         titulo:         form.titulo.trim(),
         descricao:      form.descricao.trim(),
         valor:          form.valor !== '' ? parseFloat(form.valor) : null,
-        categoria:      form.categoria.trim() || null,
+        categoria:           form.categoria.trim() || null,
+        departamento_origem: form.departamento_origem || null,
         urgencia:       form.urgencia,
         solicitante_id: profile.id,
         status: isDirector   ? STATUS.APPROVED
@@ -321,6 +323,25 @@ export default function NovaSolicitacao() {
               <option value="Serviço">Serviço</option>
               <option value="Compra">Compra</option>
               <option value="Pagamento">Pagamento</option>
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label>Departamento de origem</label>
+            <select className="input" value={form.departamento_origem} onChange={e => setField('departamento_origem', e.target.value)}
+              style={{ cursor: 'pointer' }}>
+              <option value="">Selecione...</option>
+              <option value="TI">TI</option>
+              <option value="Controladoria">Controladoria</option>
+              <option value="Tesouraria">Tesouraria</option>
+              <option value="Ambiental">Ambiental</option>
+              <option value="Recursos Humanos">Recursos Humanos</option>
+              <option value="Departamento Pessoal">Departamento Pessoal</option>
+              <option value="Contas a Pagar">Contas a Pagar</option>
+              <option value="Compras">Compras</option>
+              <option value="Assinatura Digital">Assinatura Digital</option>
+              <option value="Jurídico">Jurídico</option>
+              <option value="Financeiro">Financeiro</option>
             </select>
           </div>
         </div>

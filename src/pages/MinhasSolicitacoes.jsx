@@ -7,24 +7,31 @@ import { format } from 'date-fns'
 import { STATUS, URGENCY_META, getStatusMeta } from '../lib/workflow'
 
 const STATUS_OPTS = [
-  { value: '',                        label: 'Todos' },
-  { value: STATUS.PENDING,            label: 'Pendente' },
+  { value: '',                         label: 'Todos' },
+  { value: STATUS.PENDING,             label: 'Pendente' },
   { value: STATUS.SUPERVISOR_APPROVED, label: 'Aguarda Diretor' },
-  { value: STATUS.PARTIAL,            label: 'Aprovação Parcial' },
-  { value: STATUS.APPROVED,           label: 'Aprovado' },
-  { value: STATUS.REJECTED,           label: 'Rejeitado' },
+  { value: STATUS.PARTIAL,             label: 'Aprov. Parcial' },
+  { value: STATUS.APPROVED,            label: 'Aprovado' },
+  { value: STATUS.REJECTED,            label: 'Rejeitado' },
+]
+
+const DEPTOS = [
+  'TI', 'Controladoria', 'Tesouraria', 'Ambiental', 'Recursos Humanos',
+  'Departamento Pessoal', 'Contas a Pagar', 'Compras', 'Assinatura Digital',
+  'Jurídico', 'Financeiro',
 ]
 
 export default function MinhasSolicitacoes() {
   const { profile } = useAuth()
   const navigate = useNavigate()
 
-  const [solicitacoes,  setSolicitacoes]  = useState([])
-  const [loading,       setLoading]       = useState(true)
-  const [search,        setSearch]        = useState('')
-  const [statusFilter,  setStatusFilter]  = useState('')
+  const [solicitacoes, setSolicitacoes] = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [search,       setSearch]       = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [deptoFilter,  setDeptoFilter]  = useState('')
 
-  useEffect(() => { if (profile) fetchSolicitacoes() }, [profile, statusFilter])
+  useEffect(() => { if (profile) fetchSolicitacoes() }, [profile, statusFilter, deptoFilter])
 
   async function fetchSolicitacoes() {
     setLoading(true)
@@ -36,6 +43,7 @@ export default function MinhasSolicitacoes() {
         .order('created_at', { ascending: false })
 
       if (statusFilter) query = query.eq('status', statusFilter)
+      if (deptoFilter)  query = query.eq('departamento_origem', deptoFilter)
 
       const { data } = await query
       setSolicitacoes(data || [])
@@ -66,6 +74,7 @@ export default function MinhasSolicitacoes() {
         </button>
       </div>
 
+      {/* Busca + Filtro setor */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '1 1 200px' }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
@@ -77,17 +86,28 @@ export default function MinhasSolicitacoes() {
             style={{ paddingLeft: 34 }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} className="filter-scroll">
-          {STATUS_OPTS.map(opt => (
-            <button
-              key={opt.value}
-              className={`btn btn-sm ${statusFilter === opt.value ? 'btn-primary' : 'btn-outline'}`}
-              onClick={() => setStatusFilter(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <select
+          className="input"
+          value={deptoFilter}
+          onChange={e => setDeptoFilter(e.target.value)}
+          style={{ flex: '0 1 200px', cursor: 'pointer' }}
+        >
+          <option value="">Todos os departamentos</option>
+          {DEPTOS.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+
+      {/* Filtros de status */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} className="filter-scroll">
+        {STATUS_OPTS.map(opt => (
+          <button
+            key={opt.value}
+            className={`btn btn-sm ${statusFilter === opt.value ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setStatusFilter(opt.value)}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
@@ -98,7 +118,9 @@ export default function MinhasSolicitacoes() {
         <div className="card" style={{ textAlign: 'center', padding: 52, color: 'var(--text-3)' }}>
           <FilePlus size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Nenhuma solicitação encontrada</div>
-          <div style={{ fontSize: 13 }}>Crie sua primeira solicitação clicando em Nova solicitação</div>
+          <div style={{ fontSize: 13 }}>
+            {deptoFilter || statusFilter ? 'Tente mudar os filtros.' : 'Crie sua primeira solicitação clicando em Nova solicitação'}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -127,6 +149,9 @@ export default function MinhasSolicitacoes() {
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <span>{format(new Date(item.created_at), 'dd/MM/yyyy HH:mm')}</span>
+                      {item.departamento_origem && (
+                        <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{item.departamento_origem}</span>
+                      )}
                       {item.categoria && <span>{item.categoria}</span>}
                       {item.valor != null && (
                         <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
