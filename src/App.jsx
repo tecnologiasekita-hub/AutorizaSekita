@@ -25,6 +25,12 @@ function ApproverRoute({ children }) {
   return canApprove ? children : <Navigate to="/dashboard" replace />
 }
 
+function NonDirectorRoute({ children }) {
+  const { isDirector, loading } = useAuth()
+  if (loading) return null
+  return isDirector ? <Navigate to="/dashboard" replace /> : children
+}
+
 export default function App() {
   const { user, loading } = useAuth()
 
@@ -40,8 +46,8 @@ export default function App() {
       <Route path="/"      element={<Navigate to="/dashboard" replace />} />
       <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route path="/dashboard"             element={<Dashboard />} />
-        <Route path="/nova-solicitacao"      element={<NovaSolicitacao />} />
-        <Route path="/minhas-solicitacoes"   element={<MinhasSolicitacoes />} />
+        <Route path="/nova-solicitacao"      element={<NonDirectorRoute><NovaSolicitacao /></NonDirectorRoute>} />
+        <Route path="/minhas-solicitacoes"   element={<NonDirectorRoute><MinhasSolicitacoes /></NonDirectorRoute>} />
         <Route path="/aprovacoes"            element={<ApproverRoute><Aprovacoes /></ApproverRoute>} />
         <Route path="/solicitacao/:id"       element={<DetalhesSolicitacao />} />
         <Route path="/perfil"                element={<Perfil />} />

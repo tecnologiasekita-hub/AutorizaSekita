@@ -8,7 +8,7 @@ import { ptBR } from 'date-fns/locale'
 import { ROLE_LABELS } from '../lib/workflow'
 
 export default function Layout() {
-  const { profile, canApprove, signOut, notifications, unreadCount, markAllRead } = useAuth()
+  const { profile, canApprove, isDirector, signOut, notifications, unreadCount, markAllRead } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -32,8 +32,8 @@ export default function Layout() {
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/nova-solicitacao', icon: FilePlus, label: 'Nova solicitação' },
-    { to: '/minhas-solicitacoes', icon: FileText, label: 'Minhas solicitações' },
+    ...(!isDirector ? [{ to: '/nova-solicitacao', icon: FilePlus, label: 'Nova solicitação' }] : []),
+    ...(!isDirector ? [{ to: '/minhas-solicitacoes', icon: FileText, label: 'Minhas solicitações' }] : []),
     ...(canApprove ? [{ to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações' }] : []),
   ]
 

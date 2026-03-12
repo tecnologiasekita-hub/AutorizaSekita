@@ -111,9 +111,11 @@ export default function Dashboard() {
             {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/nova-solicitacao')}>
-          <FilePlus size={16} /> Nova solicitação
-        </button>
+        {!isDirector && (
+          <button className="btn btn-primary" onClick={() => navigate('/nova-solicitacao')}>
+            <FilePlus size={16} /> Nova solicitação
+          </button>
+        )}
       </div>
 
       {/* Stats */}
