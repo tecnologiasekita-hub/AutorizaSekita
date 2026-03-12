@@ -43,13 +43,26 @@ export default function Dashboard() {
 
       // Pendentes para aprovação
       if (isSupervisor) {
-        const { data: pend } = await supabase
-          .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-          .eq('status', STATUS.PENDING)
-          .order('created_at', { ascending: false })
-          .limit(5)
-        setPending((pend || []).filter(item => isPendingForSupervisor(item.status)))
+        // Busca apenas subordinados vinculados a este supervisor
+        const { data: subordinados } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('supervisor_id', profile.id)
+
+        const ids = (subordinados || []).map(p => p.id)
+
+        if (ids.length > 0) {
+          const { data: pend } = await supabase
+            .from('solicitacoes')
+            .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
+            .eq('status', STATUS.PENDING)
+            .in('solicitante_id', ids)
+            .order('created_at', { ascending: false })
+            .limit(5)
+          setPending(pend || [])
+        } else {
+          setPending([])
+        }
 
       } else if (isDirector) {
         // Diretor: busca via tabela de relação
