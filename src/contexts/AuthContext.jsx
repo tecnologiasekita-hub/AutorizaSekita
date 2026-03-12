@@ -4,9 +4,9 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser]             = useState(null)
-  const [profile, setProfile]       = useState(null)
-  const [loading, setLoading]       = useState(true)
+  const [user,          setUser]          = useState(null)
+  const [profile,       setProfile]       = useState(null)
+  const [loading,       setLoading]       = useState(true)
   const [notifications, setNotifications] = useState([])
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Realtime: nova notificação chega instantaneamente
+  // Realtime: notificações instantâneas
   useEffect(() => {
     if (!user) return
     const channel = supabase
@@ -53,8 +53,11 @@ export function AuthProvider({ children }) {
 
   async function loadNotifications(uid) {
     const { data } = await supabase
-      .from('notificacoes').select('*').eq('usuario_id', uid)
-      .order('created_at', { ascending: false }).limit(20)
+      .from('notificacoes')
+      .select('*')
+      .eq('usuario_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(30)
     setNotifications(data || [])
   }
 
@@ -81,7 +84,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, profile, loading,
       notifications,
-      unreadCount: notifications.filter(n => !n.lida).length,
+      unreadCount:  notifications.filter(n => !n.lida).length,
       isSupervisor: profile?.role === 'supervisor',
       isDirector:   profile?.role === 'diretor',
       canApprove:   profile?.role === 'supervisor' || profile?.role === 'diretor',

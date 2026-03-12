@@ -5,23 +5,21 @@ import { supabase } from '../lib/supabase'
 import { FilePlus, Clock, CheckCircle, XCircle, TrendingUp, ArrowRight, Loader } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { STATUS, getStatusMeta, isPendingForDirector, isPendingForSupervisor } from '../lib/workflow'
+import { STATUS, getStatusMeta, isPendingForSupervisor } from '../lib/workflow'
 
 export default function Dashboard() {
   const { profile, isDirector, isSupervisor, canApprove } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [recent, setRecent] = useState([])
+
+  const [stats,   setStats]   = useState(null)
+  const [recent,  setRecent]  = useState([])
   const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    if (profile) fetchData()
-  }, [profile])
+  useEffect(() => { if (profile) fetchData() }, [profile])
 
   async function fetchData() {
     setLoading(true)
-
     try {
       const [{ data: minhas }, { data: rec }] = await Promise.all([
         supabase.from('solicitacoes').select('status').eq('solicitante_id', profile.id),
@@ -35,76 +33,88 @@ export default function Dashboard() {
 
       if (minhas) {
         setStats({
-          total: minhas.length,
-          andamento: minhas.filter(s => [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED].includes(s.status)).length,
-          aprovado: minhas.filter(s => s.status === STATUS.APPROVED).length,
+          total:     minhas.length,
+          andamento: minhas.filter(s => [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED, STATUS.PARTIAL].includes(s.status)).length,
+          aprovado:  minhas.filter(s => s.status === STATUS.APPROVED).length,
           rejeitado: minhas.filter(s => s.status === STATUS.REJECTED).length,
         })
       }
-
       setRecent(rec || [])
 
-      if (canApprove) {
-        let query = supabase
+      // Pendentes para aprova√ß√£o
+      if (isSupervisor) {
+        const { data: pend } = await supabase
           .from('solicitacoes')
           .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
+          .eq('status', STATUS.PENDING)
+          .order('created_at', { ascending: false })
+          .limit(5)
+        setPending((pend || []).filter(item => isPendingForSupervisor(item.status)))
+
+      } else if (isDirector) {
+        // Diretor: busca via tabela de rela√ß√£o
+        const { data: dirRows } = await supabase
+          .from('solicitacao_diretores')
+          .select(`
+            status,
+            solicitacao:solicitacoes(
+              *,
+              profiles!solicitacoes_solicitante_id_fkey(nome)
+            )
+          `)
+          .eq('diretor_id', profile.id)
+          .eq('status', 'pendente')
           .order('created_at', { ascending: false })
           .limit(5)
 
-        if (isSupervisor) query = query.eq('status', STATUS.PENDING)
-        if (isDirector) query = query.in('status', [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED])
-
-        const { data: pend } = await query
-        setPending((pend || []).filter(item => {
-          if (isSupervisor) return isPendingForSupervisor(item.status)
-          if (isDirector) return isPendingForDirector(item.status)
-          return false
-        }))
+        const flat = (dirRows || [])
+          .filter(r => r.solicitacao && ['aprovado_supervisor', 'aprovado_parcial'].includes(r.solicitacao.status))
+          .map(r => ({ ...r.solicitacao, profiles: r.solicitacao.profiles }))
+        setPending(flat)
       }
+
     } finally {
       setLoading(false)
     }
   }
 
   const statCards = [
-    { label: 'Total enviados', value: stats?.total ?? 0, icon: TrendingUp, color: 'var(--accent)' },
-    { label: 'Em andamento', value: stats?.andamento ?? 0, icon: Clock, color: 'var(--yellow)' },
-    { label: 'Aprovados', value: stats?.aprovado ?? 0, icon: CheckCircle, color: 'var(--green)' },
-    { label: 'Rejeitados', value: stats?.rejeitado ?? 0, icon: XCircle, color: 'var(--red)' },
+    { label: 'Total enviados', value: stats?.total     ?? 0, icon: TrendingUp,  color: 'var(--accent)' },
+    { label: 'Em andamento',   value: stats?.andamento ?? 0, icon: Clock,        color: 'var(--yellow)' },
+    { label: 'Aprovados',      value: stats?.aprovado  ?? 0, icon: CheckCircle,  color: 'var(--green)' },
+    { label: 'Rejeitados',     value: stats?.rejeitado ?? 0, icon: XCircle,      color: 'var(--red)' },
   ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }} className="fade-in">
+
+      {/* Sauda√ß√£o */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.02em' }}>
-            Ol·, {profile?.nome?.split(' ')[0]}
+            Ol√°, {profile?.nome?.split(' ')[0]}
           </h1>
           <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 4 }}>
             {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/nova-solicitacao')}>
-          <FilePlus size={16} /> Nova solicitaÁ„o
+          <FilePlus size={16} /> Nova solicita√ß√£o
         </button>
       </div>
 
+      {/* Stats */}
       {loading ? (
         <div style={{ display: 'flex', gap: 10, color: 'var(--text-3)', fontSize: 14 }}>
           <Loader size={16} style={{ animation: 'spin 0.7s linear infinite' }} /> Carregando...
         </div>
       ) : (
         <div style={styles.statsGrid} className="stats-grid">
-          {statCards.map(({ label, value, icon: Icon, color }, index) => (
+          {statCards.map(({ label, value, icon: Icon, color }, idx) => (
             <div
               key={label}
               className="card"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                animation: `fade-in 0.3s ease ${index * 0.05}s both`,
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 16, animation: `fade-in 0.3s ease ${idx * 0.05}s both` }}
             >
               <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color}15`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon size={20} />
@@ -118,12 +128,13 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Listas */}
       <div style={styles.grid2} className="grid-auto-fit">
         <section>
-          <SectionHeader title="Minhas solicitaÁıes" onViewAll={() => navigate('/minhas-solicitacoes')} />
+          <SectionHeader title="Minhas solicita√ß√µes" onViewAll={() => navigate('/minhas-solicitacoes')} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recent.length === 0 ? (
-              <EmptyCard icon={FilePlus} text="Nenhuma solicitaÁ„o ainda" />
+              <EmptyCard icon={FilePlus} text="Nenhuma solicita√ß√£o ainda" />
             ) : recent.map(item => (
               <SolicitacaoRow key={item.id} item={item} onClick={() => navigate(`/solicitacao/${item.id}`)} />
             ))}
@@ -132,10 +143,14 @@ export default function Dashboard() {
 
         {canApprove && (
           <section>
-            <SectionHeader title="Aguardando sua aprovaÁ„o" onViewAll={() => navigate('/aprovacoes')} badge={pending.length} />
+            <SectionHeader
+              title="Aguardando sua aprova√ß√£o"
+              onViewAll={() => navigate('/aprovacoes')}
+              badge={pending.length}
+            />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {pending.length === 0 ? (
-                <EmptyCard icon={CheckCircle} text="Nenhuma pendÍncia no momento" />
+                <EmptyCard icon={CheckCircle} text="Nenhuma pend√™ncia no momento" />
               ) : pending.map(item => (
                 <SolicitacaoRow key={item.id} item={item} onClick={() => navigate(`/solicitacao/${item.id}`)} showSolicitante />
               ))}
@@ -176,20 +191,13 @@ function EmptyCard({ icon: Icon, text }) {
 
 function SolicitacaoRow({ item, onClick, showSolicitante }) {
   const status = getStatusMeta(item.status)
-
   return (
     <div
       className="card"
       onClick={onClick}
       style={{ cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}
-      onMouseEnter={event => {
-        event.currentTarget.style.borderColor = 'var(--border-light)'
-        event.currentTarget.style.background = 'var(--bg-card-2)'
-      }}
-      onMouseLeave={event => {
-        event.currentTarget.style.borderColor = 'var(--border)'
-        event.currentTarget.style.background = 'var(--bg-card)'
-      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.background = 'var(--bg-card-2)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -198,8 +206,10 @@ function SolicitacaoRow({ item, onClick, showSolicitante }) {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {showSolicitante && <span>{item.profiles?.nome}</span>}
-            <span>{format(new Date(item.created_at), "dd/MM/yyyy '‡s' HH:mm")}</span>
-            {item.valor && <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
+            <span>{format(new Date(item.created_at), "dd/MM/yyyy '√†s' HH:mm")}</span>
+            {item.valor != null && (
+              <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            )}
           </div>
         </div>
         <span className={`badge ${status.cls}`}>
@@ -212,15 +222,6 @@ function SolicitacaoRow({ item, onClick, showSolicitante }) {
 }
 
 const styles = {
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-    gap: 12,
-  },
-  grid2: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: 28,
-    alignItems: 'start',
-  },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 },
+  grid2:     { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 28, alignItems: 'start' },
 }

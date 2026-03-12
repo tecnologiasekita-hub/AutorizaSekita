@@ -201,6 +201,7 @@ a { color: inherit; text-decoration: none; }
 .dot-supervisor { background: var(--blue);   animation: pulse 2s infinite; }
 .dot-aprovado   { background: var(--green); }
 .dot-rejeitado  { background: var(--red); }
+.dot-parcial    { background: var(--yellow); animation: pulse 2s infinite; }
 
 /* ---- Spinner ---- */
 .spinner {
