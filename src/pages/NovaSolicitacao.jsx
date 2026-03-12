@@ -34,6 +34,8 @@ export default function NovaSolicitacao() {
   const [showCatList,    setShowCatList]    = useState(false)
   const [arquivos,       setArquivos]       = useState([])
   const [supervisorInfo, setSupervisorInfo] = useState(null)
+  const [diretores,      setDiretores]      = useState([])
+  const [dirSel,         setDirSel]         = useState([])
 
   const [form, setForm] = useState({
     titulo:    '',
@@ -50,6 +52,16 @@ export default function NovaSolicitacao() {
     async function load() {
       setLoadingSetup(true)
       try {
+        // Carrega diretores se for supervisor (vai selecionar na criação)
+        if (isSupervisor) {
+          const { data: dirs } = await supabase
+            .from('profiles')
+            .select('id, nome, departamento')
+            .eq('role', 'diretor')
+            .order('nome')
+          setDiretores(dirs || [])
+        }
+
         // Busca categorias já usadas
         const { data: cats } = await supabase
           .from('solicitacoes')
@@ -132,6 +144,10 @@ export default function NovaSolicitacao() {
       return setError('Você não possui supervisor vinculado. Solicite ao administrador que configure seu perfil.')
     }
 
+    if (isSupervisor && dirSel.length === 0) {
+      return setError('Selecione ao menos um diretor para encaminhar a solicitação.')
+    }
+
     setLoading(true)
     try {
       const payload = {
@@ -155,6 +171,25 @@ export default function NovaSolicitacao() {
         .from('solicitacoes').insert(payload).select().single()
 
       if (insertError) { setError('Erro ao criar a solicitação. Tente novamente.'); return }
+
+      // Supervisor criando: insere diretores selecionados
+      if (isSupervisor && dirSel.length > 0) {
+        await supabase.from('solicitacao_diretores').insert(
+          dirSel.map(did => ({
+            solicitacao_id: data.id,
+            diretor_id:     did,
+            status:         'pendente',
+          }))
+        )
+        // Notifica os diretores
+        await supabase.from('notificacoes').insert(
+          dirSel.map(did => ({
+            usuario_id:     did,
+            solicitacao_id: data.id,
+            mensagem:       `Solicitação "${data.titulo}" de ${profile.nome} aguarda sua aprovação.`,
+          }))
+        )
+      }
 
       // Notificações
       if (!isSupervisor && !isDirector) {
@@ -345,6 +380,55 @@ export default function NovaSolicitacao() {
             ))}
           </div>
         </div>
+
+        {/* Seletor de diretores — apenas para supervisor */}
+        {isSupervisor && (
+          <div className="input-group">
+            <label>
+              Diretores para aprovação *
+              <span style={{ fontWeight: 400, textTransform: 'none', marginLeft: 6, color: 'var(--text-3)' }}>
+                (todos precisarão aprovar)
+              </span>
+            </label>
+            {diretores.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>
+                Nenhum diretor cadastrado no sistema.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {diretores.map(d => {
+                  const sel = dirSel.includes(d.id)
+                  return (
+                    <label key={d.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: `1px solid ${sel ? 'var(--accent)' : 'var(--border)'}`,
+                      background: sel ? 'var(--accent-dim)' : 'var(--bg-2)',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}>
+                      <input type="checkbox" checked={sel}
+                        onChange={() => setDirSel(prev => prev.includes(d.id) ? prev.filter(x => x !== d.id) : [...prev, d.id])}
+                        style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: sel ? 'var(--accent)' : 'var(--text)' }}>
+                          {d.nome}
+                        </div>
+                        {d.departamento && (
+                          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.departamento}</div>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            {dirSel.length > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+                {dirSel.length} diretor(es) selecionado(s)
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Anexos */}
         <div className="input-group">
