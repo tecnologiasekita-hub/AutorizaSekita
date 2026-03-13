@@ -4,6 +4,7 @@
   "description": "Sistema de autorizações internas — Sekita Agronegócios",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["minimal-ui", "standalone"],
   "background_color": "#1a5c38",
   "theme_color": "#1a5c38",
   "orientation": "portrait-primary",
