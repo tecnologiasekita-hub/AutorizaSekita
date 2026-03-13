@@ -3,7 +3,7 @@
   "short_name": "AutorizaSekita",
   "description": "Sistema de autorizações internas — Sekita Agronegócios",
   "start_url": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "background_color": "#1a5c38",
   "theme_color": "#1a5c38",
   "orientation": "portrait-primary",
