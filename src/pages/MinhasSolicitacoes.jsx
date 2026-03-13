@@ -7,12 +7,10 @@ import { format } from 'date-fns'
 import { STATUS, URGENCY_META, getStatusMeta } from '../lib/workflow'
 
 const STATUS_OPTS = [
-  { value: '',                         label: 'Todos' },
-  { value: STATUS.PENDING,             label: 'Pendente' },
-  { value: STATUS.SUPERVISOR_APPROVED, label: 'Aguarda Diretor' },
-  { value: STATUS.PARTIAL,             label: 'Aprov. Parcial' },
-  { value: STATUS.APPROVED,            label: 'Aprovado' },
-  { value: STATUS.REJECTED,            label: 'Rejeitado' },
+  { value: '',               label: 'Todos' },
+  { value: STATUS.PENDING,   label: 'Pendente' },
+  { value: STATUS.APPROVED,  label: 'Aprovado' },
+  { value: STATUS.REJECTED,  label: 'Rejeitado' },
 ]
 
 const DEPTOS = [
@@ -42,7 +40,12 @@ export default function MinhasSolicitacoes() {
         .eq('solicitante_id', profile.id)
         .order('created_at', { ascending: false })
 
-      if (statusFilter) query = query.eq('status', statusFilter)
+      if (statusFilter === STATUS.PENDING) {
+        // "Pendente" agrupa tudo que ainda está em andamento
+        query = query.in('status', [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED, STATUS.PARTIAL])
+      } else if (statusFilter) {
+        query = query.eq('status', statusFilter)
+      }
       if (deptoFilter)  query = query.eq('setor_origem', deptoFilter)
 
       const { data } = await query
