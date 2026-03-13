@@ -43,7 +43,7 @@ export default function Layout() {
     return (
       <aside style={styles.sidebar}>
         <div style={styles.logoWrap}>
-          <img src={logoSekita} alt="Sekita Agronegócios" style={{ width: 130, objectFit: 'contain' }} />
+          <img src={logoSekita} alt="Sekita Agronegócios" style={{ width: 130, objectFit: 'contain', cursor: 'pointer' }} onClick={() => navigate('/dashboard')} />
           <button onClick={() => setSidebarOpen(false)} style={{ ...styles.closeBtn, display: sidebarOpen ? 'flex' : 'none' }}>
             <X size={18} color="rgba(255,255,255,0.7)" />
           </button>
