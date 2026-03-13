@@ -254,7 +254,7 @@ export default function DetalhesSolicitacao() {
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, fontWeight: 400, color: 'var(--green-brand)' }}>
+            <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 20, fontWeight: 700, color: 'var(--green-brand)' }}>
               {sol.titulo}
             </h1>
             <span className={`badge ${statusMeta.cls}`}>

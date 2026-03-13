@@ -147,7 +147,7 @@ export default function NovaSolicitacao() {
       const { data, error: insertError } = await supabase
         .from('solicitacoes').insert(payload).select().single()
 
-      if (insertError) { setError('Erro ao criar a solicitação. Tente novamente.'); return }
+      if (insertError) { console.error('Erro insert solicitacao:', insertError); setError(`Erro: ${insertError.message}`); return }
 
       // Supervisor criando: insere diretores selecionados
       if (isSupervisor && dirSel.length > 0) {
@@ -228,7 +228,7 @@ export default function NovaSolicitacao() {
           <ArrowLeft size={15} />
         </button>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 26, fontWeight: 400, color: 'var(--green-brand)' }}>
+          <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
             Nova solicitação
           </h1>
           <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>

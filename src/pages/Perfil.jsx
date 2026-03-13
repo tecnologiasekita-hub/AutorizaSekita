@@ -28,7 +28,7 @@ export default function Perfil() {
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }} className="fade-in">
       <div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 26, fontWeight: 400, color: 'var(--green-brand)' }}>
+        <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
           Meu Perfil
         </h1>
         <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>Gerencie suas informações pessoais</p>
@@ -40,7 +40,7 @@ export default function Perfil() {
           width: 64, height: 64, borderRadius: '50%',
           background: 'linear-gradient(135deg, var(--accent), var(--accent-2))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 28, color: 'white',
+          fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 28, color: 'white',
           flexShrink: 0,
         }}>
           {profile?.nome?.charAt(0)?.toUpperCase() || 'U'}

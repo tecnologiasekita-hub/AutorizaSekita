@@ -124,7 +124,7 @@ export default function Aprovacoes() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }} className="fade-in">
 
       <div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 26, fontWeight: 400, color: 'var(--green-brand)' }}>
+        <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
           Aprovações
         </h1>
         <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>

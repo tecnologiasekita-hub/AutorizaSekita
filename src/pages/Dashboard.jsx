@@ -104,7 +104,7 @@ export default function Dashboard() {
       {/* Saudação */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 28, fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--text)' }}>
             Olá, {profile?.nome?.split(' ')[0]}
           </h1>
           <p style={{ color: 'var(--text-3)', fontSize: 14, marginTop: 4 }}>
@@ -135,7 +135,7 @@ export default function Dashboard() {
                 <Icon size={20} />
               </div>
               <div>
-                <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text)', lineHeight: 1 }}>{value}</div>
+                <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-body)', color: 'var(--text)', lineHeight: 1 }}>{value}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>{label}</div>
               </div>
             </div>
@@ -181,7 +181,7 @@ function SectionHeader({ title, onViewAll, badge }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600, color: 'var(--text)' }}>{title}</h2>
+        <h2 style={{ fontFamily: 'var(--font-body)', fontSize: 17, fontWeight: 600, color: 'var(--text)' }}>{title}</h2>
         {badge > 0 && (
           <span style={{ background: 'var(--accent)', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '1px 7px' }}>
             {badge}

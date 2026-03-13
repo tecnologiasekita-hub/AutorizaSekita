@@ -55,7 +55,7 @@
   --blue-bg:    rgba(37,99,168,0.08);
 
   /* Typography */
-  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-display: 'Geist', system-ui, sans-serif;
   --font-body:    'Geist', system-ui, sans-serif;
 
   /* Shape */
