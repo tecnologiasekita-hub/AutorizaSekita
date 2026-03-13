@@ -51,7 +51,7 @@ export default function Aprovacoes() {
           query = query.neq('status', 'pendente')
         }
 
-        if (deptoFilter) query = query.eq('departamento_origem', deptoFilter)
+        if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
         const { data } = await query
         setSolicitacoes(data || [])
 
@@ -75,7 +75,7 @@ export default function Aprovacoes() {
           query = query.neq('status', 'pendente')
         }
 
-        if (deptoFilter) query = query.eq('solicitacao.departamento_origem', deptoFilter)
+        if (deptoFilter) query = query.eq('solicitacao.setor_origem', deptoFilter)
         const { data } = await query
         // Normaliza estrutura para ter o mesmo shape
         const flat = (data || [])
@@ -97,7 +97,7 @@ export default function Aprovacoes() {
   }
 
   let filtered = solicitacoes.filter(item => {
-    if (deptoFilter && item.departamento_origem !== deptoFilter) return false
+    if (deptoFilter && item.setor_origem !== deptoFilter) return false
     return true
   }).filter(item =>
     item.titulo.toLowerCase().includes(search.toLowerCase()) ||
@@ -188,13 +188,11 @@ export default function Aprovacoes() {
             onChange={e => setDeptoFilter(e.target.value)}
             style={{ cursor: 'pointer', width: 200 }}
           >
-            <option value="">Todos os departamentos</option>
+            <option value="">Todos os setores</option>
             <option value="TI">TI</option>
             <option value="Controladoria">Controladoria</option>
             <option value="Tesouraria">Tesouraria</option>
             <option value="Ambiental">Ambiental</option>
-            <option value="Recursos Humanos">Recursos Humanos</option>
-            <option value="Departamento Pessoal">Departamento Pessoal</option>
             <option value="Contas a Pagar">Contas a Pagar</option>
             <option value="Compras">Compras</option>
             <option value="Assinatura Digital">Assinatura Digital</option>

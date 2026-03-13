@@ -17,7 +17,7 @@ const STATUS_OPTS = [
 
 const DEPTOS = [
   'TI', 'Controladoria', 'Tesouraria', 'Ambiental', 'Recursos Humanos',
-  'Departamento Pessoal', 'Contas a Pagar', 'Compras', 'Assinatura Digital',
+  'Contas a Pagar', 'Compras', 'Assinatura Digital',
   'Jurídico', 'Financeiro',
 ]
 
@@ -43,7 +43,7 @@ export default function MinhasSolicitacoes() {
         .order('created_at', { ascending: false })
 
       if (statusFilter) query = query.eq('status', statusFilter)
-      if (deptoFilter)  query = query.eq('departamento_origem', deptoFilter)
+      if (deptoFilter)  query = query.eq('setor_origem', deptoFilter)
 
       const { data } = await query
       setSolicitacoes(data || [])
@@ -92,7 +92,7 @@ export default function MinhasSolicitacoes() {
           onChange={e => setDeptoFilter(e.target.value)}
           style={{ flex: '0 1 200px', cursor: 'pointer' }}
         >
-          <option value="">Todos os departamentos</option>
+          <option value="">Todos os setores</option>
           {DEPTOS.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
@@ -149,8 +149,8 @@ export default function MinhasSolicitacoes() {
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <span>{format(new Date(item.created_at), 'dd/MM/yyyy HH:mm')}</span>
-                      {item.departamento_origem && (
-                        <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{item.departamento_origem}</span>
+                      {item.setor_origem && (
+                        <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{item.setor_origem}</span>
                       )}
                       {item.categoria && <span>{item.categoria}</span>}
                       {item.valor != null && (

@@ -40,7 +40,7 @@ export default function NovaSolicitacao() {
     valor:               '',
     categoria:           '',
     urgencia:            URGENCY.NORMAL,
-    departamento_origem: '',
+    setor_origem: '',
   })
 
   const isSupervisor = profile?.role === 'supervisor'
@@ -117,7 +117,7 @@ export default function NovaSolicitacao() {
     if (form.valor !== '' && parseFloat(form.valor) < 0) return setError('Valor não pode ser negativo.')
 
     if (!isSupervisor && !isDirector && !supervisorInfo) {
-      return setError('Você não possui supervisor vinculado. Solicite ao administrador que configure seu perfil.')
+      return setError('Supervisor não vinculado. Você não possui supervisor vinculado.')
     }
 
     if (isSupervisor && dirSel.length === 0) {
@@ -131,7 +131,7 @@ export default function NovaSolicitacao() {
         descricao:      form.descricao.trim(),
         valor:          form.valor !== '' ? parseFloat(form.valor) : null,
         categoria:           form.categoria.trim() || null,
-        departamento_origem: form.departamento_origem || null,
+        setor_origem: form.setor_origem || null,
         urgencia:       form.urgencia,
         solicitante_id: profile.id,
         status: isDirector   ? STATUS.APPROVED
@@ -250,46 +250,12 @@ export default function NovaSolicitacao() {
               Supervisor não vinculado
             </div>
             <div style={{ fontSize: 13, color: 'var(--red)', lineHeight: 1.6 }}>
-              Você não possui supervisor vinculado. Solicite ao administrador que preencha o campo <strong>supervisor_id</strong> na tabela <strong>profiles</strong>.
+              Supervisor não vinculado. Você não possui supervisor vinculado.
             </div>
           </div>
         </div>
       )}
 
-      {/* Fluxo visual */}
-      <div className="card" style={{ marginBottom: 20, background: 'var(--green-pale)', borderColor: 'var(--green-pale-2)' }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-brand)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-          Fluxo de aprovação
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {flowSteps.map((step, i) => (
-            <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{
-                  padding: '4px 11px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                  background: step.active ? 'var(--accent)' : step.green ? 'var(--green-bg)' : 'var(--bg-2)',
-                  color:      step.active ? 'white'          : step.green ? 'var(--green)'   : 'var(--text-3)',
-                  border:     step.green  ? '1px solid var(--green-border)' : '1px solid transparent',
-                }}>
-                  {step.label}
-                </span>
-                {step.sub && (
-                  <span style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2, paddingLeft: 4 }}>
-                    {step.sub}
-                  </span>
-                )}
-              </div>
-              {i < flowSteps.length - 1 && <span style={{ color: 'var(--text-3)', fontSize: 13 }}>→</span>}
-            </div>
-          ))}
-        </div>
-        {!isSupervisor && !isDirector && supervisorInfo && (
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-2)' }}>
-            Supervisor responsável: <strong style={{ color: 'var(--green-brand)' }}>{supervisorInfo.nome}</strong>
-            {supervisorInfo.departamento && ` · ${supervisorInfo.departamento}`}
-          </div>
-        )}
-      </div>
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
@@ -327,16 +293,14 @@ export default function NovaSolicitacao() {
           </div>
 
           <div className="input-group">
-            <label>Departamento de origem</label>
-            <select className="input" value={form.departamento_origem} onChange={e => setField('departamento_origem', e.target.value)}
+            <label>Setor de origem</label>
+            <select className="input" value={form.setor_origem} onChange={e => setField('setor_origem', e.target.value)}
               style={{ cursor: 'pointer' }}>
               <option value="">Selecione...</option>
               <option value="TI">TI</option>
               <option value="Controladoria">Controladoria</option>
               <option value="Tesouraria">Tesouraria</option>
               <option value="Ambiental">Ambiental</option>
-              <option value="Recursos Humanos">Recursos Humanos</option>
-              <option value="Departamento Pessoal">Departamento Pessoal</option>
               <option value="Contas a Pagar">Contas a Pagar</option>
               <option value="Compras">Compras</option>
               <option value="Assinatura Digital">Assinatura Digital</option>
