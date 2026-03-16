@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { notificar } from '../lib/notificar'
 import { ArrowLeft, Send, Paperclip, X, FileText, Image, File, AlertCircle } from 'lucide-react'
 import { STATUS, URGENCY, URGENCY_META, formatBytes } from '../lib/workflow'
 
@@ -50,7 +51,7 @@ export default function NovaSolicitacao() {
     async function load() {
       setLoadingSetup(true)
       try {
-        // Carrega diretores se for supervisor (vai selecionar na criação)
+        // Carrega diretores se for supervisor e auto-seleciona o vinculado
         if (isSupervisor) {
           const { data: dirs } = await supabase
             .from('profiles')
@@ -58,6 +59,13 @@ export default function NovaSolicitacao() {
             .eq('role', 'diretor')
             .order('nome')
           setDiretores(dirs || [])
+        }
+
+        // Auto-seleciona o diretor vinculado ao supervisor
+        if (isSupervisor) {
+          const { data: myProf } = await supabase
+            .from('profiles').select('diretor_id').eq('id', profile.id).single()
+          if (myProf?.diretor_id) setDirSel([myProf.diretor_id])
         }
 
         // Solicitante: busca supervisor vinculado (2 queries separadas — evita problema de FK name)
@@ -327,50 +335,34 @@ export default function NovaSolicitacao() {
           </div>
         </div>
 
-        {/* Seletor de diretores — apenas para supervisor */}
+        {/* Diretor vinculado — exibe nome automaticamente */}
         {isSupervisor && (
           <div className="input-group">
-            <label>
-              Diretores para aprovação *
-              <span style={{ fontWeight: 400, textTransform: 'none', marginLeft: 6, color: 'var(--text-3)' }}>
-                (todos precisarão aprovar)
-              </span>
-            </label>
-            {diretores.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>
-                Nenhum diretor cadastrado no sistema.
-              </div>
+            <label>Diretor responsável</label>
+            {dirSel.length > 0 ? (
+              diretores.filter(d => dirSel.includes(d.id)).map(d => (
+                <div key={d.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--accent)',
+                  background: 'var(--accent-dim)',
+                }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                    background: 'var(--accent)', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white',
+                  }}>
+                    {d.nome.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{d.nome}</div>
+                    {d.departamento && <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.departamento}</div>}
+                  </div>
+                </div>
+              ))
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {diretores.map(d => {
-                  const sel = dirSel.includes(d.id)
-                  return (
-                    <label key={d.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: `1px solid ${sel ? 'var(--accent)' : 'var(--border)'}`,
-                      background: sel ? 'var(--accent-dim)' : 'var(--bg-2)',
-                      cursor: 'pointer', transition: 'all 0.15s',
-                    }}>
-                      <input type="checkbox" checked={sel}
-                        onChange={() => setDirSel(prev => prev.includes(d.id) ? prev.filter(x => x !== d.id) : [...prev, d.id])}
-                        style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: sel ? 'var(--accent)' : 'var(--text)' }}>
-                          {d.nome}
-                        </div>
-                        {d.departamento && (
-                          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.departamento}</div>
-                        )}
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-            )}
-            {dirSel.length > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-                {dirSel.length} diretor(es) selecionado(s)
+              <div style={{ fontSize: 13, color: 'var(--red)', padding: '8px 0' }}>
+                ⚠ Nenhum diretor vinculado ao seu perfil. Solicite ao administrador.
               </div>
             )}
           </div>

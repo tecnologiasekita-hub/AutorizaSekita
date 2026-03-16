@@ -37,6 +37,21 @@ export default function DetalhesSolicitacao() {
   const [dirError,       setDirError]       = useState('')
 
   useEffect(() => { fetchData() }, [id])
+  useEffect(() => {
+    // Auto-seleciona o diretor vinculado ao supervisor
+    async function autoSelectDiretor() {
+      if (!isSupervisor || !profile) return
+      const { data } = await supabase
+        .from('profiles')
+        .select('diretor_id')
+        .eq('id', profile.id)
+        .single()
+      if (data?.diretor_id) {
+        setDirSel([data.diretor_id])
+      }
+    }
+    autoSelectDiretor()
+  }, [profile, isSupervisor])
 
   async function fetchData() {
     setLoading(true)
@@ -403,52 +418,39 @@ export default function DetalhesSolicitacao() {
 
           {!showRejectForm ? (
             <>
-              {/* Seletor de diretores — SOMENTE para supervisor */}
+              {/* Diretor vinculado — exibe nome automaticamente */}
               {canActSupervisor && (
                 <div className="input-group" style={{ marginBottom: 18 }}>
-                  <label>
-                    Selecionar diretores *
-                    <span style={{ fontWeight: 400, textTransform: 'none', marginLeft: 6, color: 'var(--text-3)' }}>
-                      (todos precisarão aprovar)
-                    </span>
-                  </label>
-                  {allDiretores.length === 0 ? (
-                    <div style={{ fontSize: 13, color: 'var(--text-3)', padding: '8px 0' }}>
-                      Nenhum diretor cadastrado no sistema.
-                    </div>
+                  <label>Diretor responsável</label>
+                  {dirSel.length > 0 ? (
+                    allDiretores.filter(d => dirSel.includes(d.id)).map(d => (
+                      <div key={d.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--accent)',
+                        background: 'var(--accent-dim)',
+                      }}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          background: 'var(--accent)', display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white',
+                        }}>
+                          {d.nome.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{d.nome}</div>
+                          {d.departamento && <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.departamento}</div>}
+                        </div>
+                      </div>
+                    ))
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {allDiretores.map(d => {
-                        const sel = dirSel.includes(d.id)
-                        return (
-                          <label key={d.id} style={{
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
-                            borderRadius: 'var(--radius-sm)',
-                            border: `1px solid ${sel ? 'var(--accent)' : 'var(--border)'}`,
-                            background: sel ? 'var(--accent-dim)' : 'var(--bg-2)',
-                            cursor: 'pointer', transition: 'all 0.15s',
-                          }}>
-                            <input type="checkbox" checked={sel} onChange={() => toggleDir(d.id)}
-                              style={{ accentColor: 'var(--accent)', width: 15, height: 15 }} />
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: sel ? 'var(--accent)' : 'var(--text)' }}>
-                                {d.nome}
-                              </div>
-                              {d.departamento && <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.departamento}</div>}
-                            </div>
-                          </label>
-                        )
-                      })}
+                    <div style={{ fontSize: 13, color: 'var(--red)', padding: '8px 0' }}>
+                      ⚠ Nenhum diretor vinculado ao seu perfil. Solicite ao administrador.
                     </div>
                   )}
                   {dirError && (
                     <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4, fontWeight: 500 }}>
                       ⚠ {dirError}
-                    </div>
-                  )}
-                  {dirSel.length > 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
-                      {dirSel.length} diretor(es) selecionado(s)
                     </div>
                   )}
                 </div>
