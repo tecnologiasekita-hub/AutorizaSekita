@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { notificar } from '../lib/notificar'
 import {
   ArrowLeft, CheckCircle, XCircle, User, MessageSquare,
   DollarSign, Tag, AlertTriangle, Paperclip, Download, FileText, Image, File,
@@ -255,6 +256,7 @@ export default function DetalhesSolicitacao() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
             <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 20, fontWeight: 700, color: 'var(--green-brand)' }}>
+              {sol.numero && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)', marginRight: 8 }}>#{sol.numero}</span>}
               {sol.titulo}
             </h1>
             <span className={`badge ${statusMeta.cls}`}>

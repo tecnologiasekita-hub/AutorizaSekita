@@ -146,6 +146,7 @@ export default function MinhasSolicitacoes() {
                         width: 7, height: 7, borderRadius: '50%',
                         background: urgency?.color || 'var(--text-3)', flexShrink: 0,
                       }} title={`Urgência: ${item.urgencia}`} />
+                      {item.numero && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', flexShrink: 0 }}>#{item.numero}</span>}
                       <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.titulo}
                       </span>
