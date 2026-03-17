@@ -270,10 +270,18 @@ export default function DetalhesSolicitacao() {
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-            <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 20, fontWeight: 700, color: 'var(--green-brand)' }}>
-              {sol.numero && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-3)', marginRight: 8 }}>#{sol.numero}</span>}
-              {sol.titulo}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {sol.numero && (
+                <span style={{
+                  fontSize: 13, fontWeight: 700, color: 'white',
+                  background: 'var(--accent)', borderRadius: 4,
+                  padding: '3px 9px', flexShrink: 0,
+                }}>#{sol.numero}</span>
+              )}
+              <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 20, fontWeight: 700, color: 'var(--green-brand)', margin: 0 }}>
+                {sol.titulo}
+              </h1>
+            </div>
             <span className={`badge ${statusMeta.cls}`}>
               <span className={`status-dot ${statusMeta.dot}`} />
               {statusMeta.label}
