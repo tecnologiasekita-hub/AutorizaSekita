@@ -26,7 +26,7 @@ export const STATUS_META = {
     dot:   'dot-pendente',
   },
   [STATUS.SUPERVISOR_APPROVED]: {
-    label: 'Aguardando Diretor',
+    label: 'Aguardando aprovação do Diretor',
     cls:   'badge-supervisor',
     dot:   'dot-supervisor',
   },
