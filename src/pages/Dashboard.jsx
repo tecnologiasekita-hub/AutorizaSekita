@@ -216,8 +216,17 @@ function SolicitacaoRow({ item, onClick, showSolicitante }) {
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.titulo}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            {item.numero && (
+              <span style={{
+                fontSize: 12, fontWeight: 700, color: 'white',
+                background: 'var(--accent)', borderRadius: 4,
+                padding: '2px 7px', flexShrink: 0,
+              }}>#{item.numero}</span>
+            )}
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.titulo}
+            </span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {showSolicitante && <span>{item.profiles?.nome}</span>}
