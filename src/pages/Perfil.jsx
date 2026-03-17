@@ -7,7 +7,7 @@ const roleClass = { solicitante: 'badge-solicitante', supervisor: 'badge-supervi
 
 export default function Perfil() {
   const { profile, updateProfile } = useAuth()
-  const [form, setForm]       = useState({ nome: profile?.nome || '', departamento: profile?.departamento || '' })
+  const [form, setForm]       = useState({ nome: profile?.nome || '' })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError]     = useState('')
@@ -81,12 +81,8 @@ export default function Perfil() {
 
         <div className="input-group">
           <label><Building2 size={11} style={{ display: 'inline', marginRight: 5 }} />Departamento</label>
-          <input
-            className="input"
-            value={form.departamento}
-            onChange={e => setForm(f => ({ ...f, departamento: e.target.value }))}
-            placeholder="Ex: Financeiro, TI, RH..."
-          />
+          <input className="input" value={form.departamento || '—'} disabled />
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Definido pelo administrador — não editável</span>
         </div>
 
         <div className="input-group">
