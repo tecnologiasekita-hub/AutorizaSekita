@@ -107,30 +107,32 @@ export default function RenegociacaoVenda() {
 
   async function handleSubmit() {
     setError('')
-    if (form.tipos.length === 0) return setError('Selecione ao menos um tipo de solicitação.')
-    if (!form.empresa)           return setError('Selecione a empresa.')
-    if (!form.cliente.trim())    return setError('Informe o cliente.')
-    if (!form.justificativa.trim()) return setError('Preencha a justificativa.')
+    if (form.tipos.length === 0)     return setError('Selecione ao menos um tipo de solicitação.')
+    if (!form.empresa)               return setError('Selecione a empresa.')
+    if (!form.cliente.trim())        return setError('Informe o cliente.')
+    if (!form.justificativa.trim())  return setError('Preencha a justificativa.')
     if (!isSupervisor && !isDirector && !supervisorInfo)
       return setError('Supervisor não vinculado. Você não possui supervisor vinculado.')
 
     setLoading(true)
     try {
       const empresa = EMPRESAS.find(e => e.codigo === form.empresa)
-      const titulo = `Renegociação de Venda — ${form.cliente}`
-      const descricao = [
-        `Tipos: ${form.tipos.join(', ')}`,
-        `Empresa: ${empresa ? `${empresa.codigo} – ${empresa.nome}` : form.empresa}`,
-        `Cliente: ${form.cliente}`,
-        form.data_emissao     ? `Data de emissão: ${form.data_emissao}`         : '',
-        form.data_vencimento  ? `Data de vencimento: ${form.data_vencimento}`   : '',
-        form.numero_pedido    ? `Número pedido/venda: ${form.numero_pedido}`     : '',
-        form.nota_fiscal      ? `Nota Fiscal: ${form.nota_fiscal}`              : '',
-        form.valor            ? `Valor: R$ ${form.valor}`                       : '',
-        form.vencimento_atual ? `Vencimento atual: ${form.vencimento_atual}`    : '',
-        form.vencimentos_solicitados ? `Vencimentos solicitados: ${form.vencimentos_solicitados}` : '',
-        `\nJustificativa: ${form.justificativa}`,
-      ].filter(Boolean).join('\n')
+      const titulo = 'Renegociação de Venda — ' + form.cliente
+      const linhas = [
+        'Tipos: ' + form.tipos.join(', '),
+        'Empresa: ' + (empresa ? empresa.codigo + ' – ' + empresa.nome : form.empresa),
+        'Cliente: ' + form.cliente,
+        form.data_emissao     ? 'Data de emissão: '          + form.data_emissao            : '',
+        form.data_vencimento  ? 'Data de vencimento: '       + form.data_vencimento         : '',
+        form.numero_pedido    ? 'Número pedido/venda: '      + form.numero_pedido           : '',
+        form.nota_fiscal      ? 'Nota Fiscal: '              + form.nota_fiscal             : '',
+        form.valor            ? 'Valor: R$ '                 + form.valor                   : '',
+        form.vencimento_atual ? 'Vencimento atual: '         + form.vencimento_atual        : '',
+        form.vencimentos_solicitados ? 'Vencimentos solicitados: ' + form.vencimentos_solicitados : '',
+        '',
+        'Justificativa: ' + form.justificativa,
+      ]
+      const descricao = linhas.filter(Boolean).join('\n')
 
       const payload = {
         titulo,
@@ -153,7 +155,7 @@ export default function RenegociacaoVenda() {
       if (solErr) throw solErr
 
       for (const file of arquivos) {
-        const path = `${sol.id}/${Date.now()}-${file.name}`
+        const path = sol.id + '/' + Date.now() + '-' + file.name
         const { error: upErr } = await supabase.storage.from('anexos').upload(path, file)
         if (!upErr) {
           await supabase.from('anexos').insert({
@@ -170,21 +172,16 @@ export default function RenegociacaoVenda() {
       await supabase.from('historico').insert({
         solicitacao_id: sol.id,
         usuario_id:     profile.id,
-        descricao:      `Solicitação criada por ${profile.nome}`,
+        descricao:      'Solicitação criada por ' + profile.nome,
       })
 
       if (isSupervisor && dirSel.length > 0) {
         await supabase.from('solicitacao_diretores').insert(
           dirSel.map(did => ({ solicitacao_id: sol.id, diretor_id: did, status: 'pendente' }))
         )
-        for (const did of dirSel) {
-          await supabase.from(\'notificacoes\').insert({ usuario_id: did, solicitacao_id: sol.id, mensagem: `Renegociação de "${form.cliente}" aguarda sua aprovação.`, lida: false })
-        }
-      } else if (!isSupervisor && supervisorInfo) {
-        await supabase.from(\'notificacoes\').insert({ usuario_id: supervisorInfo.id, solicitacao_id: sol.id, mensagem: `Nova renegociação de "${form.cliente}" aguarda sua aprovação.`, lida: false })
       }
 
-      navigate(`/solicitacao/${sol.id}`)
+      navigate('/solicitacao/' + sol.id)
     } catch (e) {
       console.error(e)
       setError('Erro ao enviar. Tente novamente.')
@@ -241,7 +238,6 @@ export default function RenegociacaoVenda() {
 
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* Tipo */}
         <div className="input-group">
           <label>Tipo de solicitação *</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
@@ -249,7 +245,7 @@ export default function RenegociacaoVenda() {
               <label key={tipo} style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px',
                 borderRadius: 'var(--radius-sm)',
-                border: `1px solid ${form.tipos.includes(tipo) ? 'var(--accent)' : 'var(--border)'}`,
+                border: '1px solid ' + (form.tipos.includes(tipo) ? 'var(--accent)' : 'var(--border)'),
                 background: form.tipos.includes(tipo) ? 'var(--accent-dim)' : 'var(--bg-2)',
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
@@ -264,7 +260,6 @@ export default function RenegociacaoVenda() {
           </div>
         </div>
 
-        {/* Empresa */}
         <div className="input-group">
           <label>Empresa *</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
@@ -272,7 +267,7 @@ export default function RenegociacaoVenda() {
               <label key={emp.codigo} style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
                 borderRadius: 'var(--radius-sm)',
-                border: `1px solid ${form.empresa === emp.codigo ? 'var(--accent)' : 'var(--border)'}`,
+                border: '1px solid ' + (form.empresa === emp.codigo ? 'var(--accent)' : 'var(--border)'),
                 background: form.empresa === emp.codigo ? 'var(--accent-dim)' : 'var(--bg-2)',
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
@@ -289,7 +284,6 @@ export default function RenegociacaoVenda() {
           </div>
         </div>
 
-        {/* Dados */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div className="input-group" style={{ gridColumn: '1 / -1' }}>
             <label>Cliente *</label>
@@ -323,7 +317,6 @@ export default function RenegociacaoVenda() {
           </div>
         </div>
 
-        {/* Vencimentos */}
         <div className="input-group">
           <label>Boleto vencimento atual</label>
           <input className="input" placeholder="Ex: 03/05/2026 R$ 100.100,00"
@@ -336,16 +329,19 @@ export default function RenegociacaoVenda() {
             value={form.vencimentos_solicitados} onChange={e => setField('vencimentos_solicitados', e.target.value)} />
         </div>
 
-        {/* Justificativa */}
         <div className="input-group">
           <label>Justificativa *</label>
           <textarea className="input" rows={4} placeholder="Descreva o motivo da renegociação..."
             value={form.justificativa} onChange={e => setField('justificativa', e.target.value)} />
         </div>
 
-        {/* Anexos */}
         <div className="input-group">
-          <label>Anexos <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-3)' }}>(PDF, imagens — máx. 10 MB cada)</span></label>
+          <label>
+            Anexos{' '}
+            <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-3)' }}>
+              (PDF, imagens — máx. 10 MB cada)
+            </span>
+          </label>
           <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp"
             multiple style={{ display: 'none' }} onChange={e => handleFiles(e.target.files)} />
           {arquivos.length > 0 && (
@@ -374,7 +370,6 @@ export default function RenegociacaoVenda() {
           </button>
         </div>
 
-        {/* Submit */}
         <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
           <button className="btn btn-primary" onClick={handleSubmit}
             disabled={loading || (!isSupervisor && !isDirector && !supervisorInfo)}>
