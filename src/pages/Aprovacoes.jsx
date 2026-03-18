@@ -24,7 +24,25 @@ export default function Aprovacoes() {
     if (!profile) return
     setLoading(true)
     try {
-      if (isSupervisor) {
+      if (isTesouraria) {
+        // Supervisor Tesouraria — tratado primeiro pois também é isSupervisor
+        let query = supabase
+          .from('solicitacoes')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
+          .eq('requer_tesouraria', true)
+          .order('created_at', { ascending: false })
+
+        if (filter === 'pendentes') {
+          query = query.eq('status', 'aguarda_tesouraria')
+        } else {
+          query = query.neq('status', 'aguarda_tesouraria')
+        }
+
+        if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
+        const { data } = await query
+        setSolicitacoes(data || [])
+
+      } else if (isSupervisor) {
         // 1. Busca IDs dos solicitantes vinculados a este supervisor
         const { data: subordinados } = await supabase
           .from('profiles')
@@ -48,7 +66,6 @@ export default function Aprovacoes() {
         if (filter === 'pendentes') {
           query = query.eq('status', 'pendente')
         } else {
-          // Histórico: tudo que ele aprovou/rejeitou (supervisor_id = ele) ou que seus subordinados criaram
           query = query.neq('status', 'pendente')
         }
 
@@ -91,23 +108,6 @@ export default function Aprovacoes() {
             _minha_decisao: row.status,
           }))
         setSolicitacoes(flat)
-      } else if (isTesouraria) {
-        // Supervisor Tesouraria vê solicitações aguardando autorização da tesouraria
-        let query = supabase
-          .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
-          .eq('requer_tesouraria', true)
-          .order('created_at', { ascending: false })
-
-        if (filter === 'pendentes') {
-          query = query.eq('status', 'aguarda_tesouraria')
-        } else {
-          query = query.neq('status', 'aguarda_tesouraria')
-        }
-
-        if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
-        const { data } = await query
-        setSolicitacoes(data || [])
       }
     } finally {
       setLoading(false)
