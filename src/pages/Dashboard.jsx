@@ -9,6 +9,7 @@ import { STATUS, getStatusMeta, isPendingForSupervisor } from '../lib/workflow'
 
 export default function Dashboard() {
   const { profile, isDirector, isSupervisor, canApprove } = useAuth()
+  const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
   const navigate = useNavigate()
 
   const [stats,   setStats]   = useState(null)
@@ -42,7 +43,18 @@ export default function Dashboard() {
       setRecent(rec || [])
 
       // Pendentes para aprovação
-      if (isSupervisor) {
+      if (isTesouraria) {
+        // Supervisor Tesouraria: solicitações aguardando autorização
+        const { data: pend } = await supabase
+          .from('solicitacoes')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
+          .eq('status', 'aguarda_tesouraria')
+          .eq('requer_tesouraria', true)
+          .order('created_at', { ascending: false })
+          .limit(5)
+        setPending(pend || [])
+
+      } else if (isSupervisor) {
         // Busca apenas subordinados vinculados a este supervisor
         const { data: subordinados } = await supabase
           .from('profiles')
