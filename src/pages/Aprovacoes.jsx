@@ -8,6 +8,7 @@ import { URGENCY_META, getStatusMeta, isPendingForDirector, isPendingForSupervis
 
 export default function Aprovacoes() {
   const { profile, isSupervisor, isDirector } = useAuth()
+  const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
   const navigate = useNavigate()
 
   const [solicitacoes,    setSolicitacoes]    = useState([])
@@ -90,6 +91,23 @@ export default function Aprovacoes() {
             _minha_decisao: row.status,
           }))
         setSolicitacoes(flat)
+      } else if (isTesouraria) {
+        // Supervisor Tesouraria vê solicitações aguardando autorização da tesouraria
+        let query = supabase
+          .from('solicitacoes')
+          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
+          .eq('requer_tesouraria', true)
+          .order('created_at', { ascending: false })
+
+        if (filter === 'pendentes') {
+          query = query.eq('status', 'aguarda_tesouraria')
+        } else {
+          query = query.neq('status', 'aguarda_tesouraria')
+        }
+
+        if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
+        const { data } = await query
+        setSolicitacoes(data || [])
       }
     } finally {
       setLoading(false)
@@ -113,10 +131,11 @@ export default function Aprovacoes() {
   const pendingCount = solicitacoes.filter(item => {
     if (isSupervisor) return isPendingForSupervisor(item.status)
     if (isDirector)   return isPendingForDirector(item.status) && item._minha_decisao === 'pendente'
+    if (isTesouraria) return item.status === 'aguarda_tesouraria'
     return false
   }).length
 
-  const roleName  = isSupervisor ? 'Supervisor' : 'Diretor'
+  const roleName  = isTesouraria ? 'Tesouraria' : isSupervisor ? 'Supervisor' : 'Diretor'
   const roleColor = isSupervisor ? 'var(--blue)' : 'var(--accent-2)'
   const roleBg    = isSupervisor ? 'var(--blue-bg)' : 'var(--accent-2-dim)'
 

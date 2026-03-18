@@ -4,6 +4,7 @@ export const STATUS = {
   PARTIAL:             'aprovado_parcial',
   APPROVED:            'aprovado',
   REJECTED:            'rejeitado',
+  AGUARDA_TESOURARIA:  'aguarda_tesouraria',
 }
 
 export const URGENCY = {
@@ -26,7 +27,7 @@ export const STATUS_META = {
     dot:   'dot-pendente',
   },
   [STATUS.SUPERVISOR_APPROVED]: {
-    label: 'Aguardando aprovação do Diretor',
+    label: 'Aguarda Diretor',
     cls:   'badge-supervisor',
     dot:   'dot-supervisor',
   },
@@ -44,6 +45,11 @@ export const STATUS_META = {
     label: 'Rejeitado',
     cls:   'badge-rejeitado',
     dot:   'dot-rejeitado',
+  },
+  ['aguarda_tesouraria']: {
+    label: 'Aguarda Tesouraria',
+    cls:   'badge-supervisor',
+    dot:   'dot-supervisor',
   },
 }
 
@@ -91,6 +97,10 @@ export function calcStatusAfterDirectorApprove(diretores) {
   const aprovados = diretores.filter(d => d.status === 'aprovado').length
   if (aprovados === total) return STATUS.APPROVED
   return STATUS.PARTIAL
+}
+
+export function isPendingForTesouraria(status) {
+  return status === 'aguarda_tesouraria'
 }
 
 export function formatBytes(bytes) {

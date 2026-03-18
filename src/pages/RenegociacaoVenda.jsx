@@ -141,6 +141,7 @@ export default function RenegociacaoVenda() {
         categoria:      'Renegociação de Venda',
         setor_origem:   profile.departamento || null,
         urgencia:       URGENCY.NORMAL,
+        requer_tesouraria: true,
         solicitante_id: profile.id,
         status:         isSupervisor ? STATUS.SUPERVISOR_APPROVED : STATUS.PENDING,
       }
