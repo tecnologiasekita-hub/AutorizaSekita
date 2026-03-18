@@ -7,6 +7,8 @@ import NovaSolicitacao from './pages/NovaSolicitacao'
 import MinhasSolicitacoes from './pages/MinhasSolicitacoes'
 import Aprovacoes from './pages/Aprovacoes'
 import DetalhesSolicitacao from './pages/DetalhesSolicitacao'
+import SelecionarFormulario from './pages/SelecionarFormulario'
+import RenegociacaoVenda from './pages/RenegociacaoVenda'
 import Perfil from './pages/Perfil'
 
 function PrivateRoute({ children }) {
@@ -46,7 +48,9 @@ export default function App() {
       <Route path="/"      element={<Navigate to="/dashboard" replace />} />
       <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
         <Route path="/dashboard"             element={<Dashboard />} />
-        <Route path="/nova-solicitacao"      element={<NonDirectorRoute><NovaSolicitacao /></NonDirectorRoute>} />
+        <Route path="/nova-solicitacao"      element={<NonDirectorRoute><SelecionarFormulario /></NonDirectorRoute>} />
+        <Route path="/nova-solicitacao/geral"  element={<NonDirectorRoute><NovaSolicitacao /></NonDirectorRoute>} />
+        <Route path="/nova-solicitacao/renegociacao-venda" element={<NonDirectorRoute><RenegociacaoVenda /></NonDirectorRoute>} />
         <Route path="/minhas-solicitacoes"   element={<NonDirectorRoute><MinhasSolicitacoes /></NonDirectorRoute>} />
         <Route path="/aprovacoes"            element={<ApproverRoute><Aprovacoes /></ApproverRoute>} />
         <Route path="/solicitacao/:id"       element={<DetalhesSolicitacao />} />
