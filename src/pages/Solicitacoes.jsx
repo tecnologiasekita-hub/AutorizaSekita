@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { FilePlus, Search, Clock, CheckCircle, FileText } from 'lucide-react'
+import { FilePlus, Search, Clock, CheckCircle, FileText, SlidersHorizontal, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { STATUS, URGENCY_META, getStatusMeta, isPendingForDirector } from '../lib/workflow'
 
@@ -25,6 +25,18 @@ const ABAS = [
   { id: 'historico', label: 'Histórico', icon: CheckCircle },
 ]
 
+const PERIOD_LABELS = {
+  hoje: 'Hoje',
+  '7dias': 'Últimos 7 dias',
+  '30dias': 'Últimos 30 dias',
+}
+
+const STATUS_LABELS = {
+  [STATUS.PENDING]: 'Pendente',
+  [STATUS.APPROVED]: 'Aprovado',
+  [STATUS.REJECTED]: 'Rejeitado',
+}
+
 export default function Solicitacoes() {
   const { profile, isSupervisor, isDirector } = useAuth()
   const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
@@ -39,6 +51,7 @@ export default function Solicitacoes() {
   const [statusFilter, setStatusFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('')
   const [pendCount, setPendCount] = useState(0)
+  const [showFilters, setShowFilters] = useState(false)
 
   useEffect(() => {
     if (profile) fetchItens()
@@ -201,6 +214,14 @@ export default function Solicitacoes() {
     }
   }
 
+  function clearFilters() {
+    setDeptoFilter('')
+    setStatusFilter('')
+    setPeriodFilter('')
+  }
+
+  const activeFilterCount = [deptoFilter, periodFilter, statusFilter].filter(Boolean).length
+
   const filtered = itens.filter(item => {
     const q = search.toLowerCase()
     const matchesSearch =
@@ -217,8 +238,15 @@ export default function Solicitacoes() {
       (periodFilter === 'hoje' && diffDays !== null && diffDays < 1) ||
       (periodFilter === '7dias' && diffDays !== null && diffDays <= 7) ||
       (periodFilter === '30dias' && diffDays !== null && diffDays <= 30)
+
     return matchesSearch && matchesDepto && matchesStatus && matchesPeriod
   })
+
+  const activeChips = [
+    deptoFilter ? { key: 'depto', label: deptoFilter, onRemove: () => setDeptoFilter('') } : null,
+    periodFilter ? { key: 'periodo', label: PERIOD_LABELS[periodFilter], onRemove: () => setPeriodFilter('') } : null,
+    statusFilter ? { key: 'status', label: STATUS_LABELS[statusFilter], onRemove: () => setStatusFilter('') } : null,
+  ].filter(Boolean)
 
   const showMinhas = !isDirector
   const showPendentes = isSupervisor || isDirector
@@ -241,7 +269,7 @@ export default function Solicitacoes() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', paddingBottom: 0 }}>
+      <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', paddingBottom: 0 }} className="filter-scroll">
         {abasVisiveis.map(item => {
           const ativo = aba === item.id
           const Icon = item.icon
@@ -252,9 +280,8 @@ export default function Solicitacoes() {
               onClick={() => {
                 setAba(item.id)
                 setSearch('')
-                setDeptoFilter('')
-                setStatusFilter('')
-                setPeriodFilter('')
+                clearFilters()
+                setShowFilters(false)
               }}
               style={{
                 display: 'flex',
@@ -284,54 +311,101 @@ export default function Solicitacoes() {
         })}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 220px' }}>
-          <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
-          <input
-            className="input"
-            placeholder="Buscar..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft: 34 }}
-          />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 220px' }}>
+            <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+            <input
+              className="input"
+              placeholder="Buscar..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ paddingLeft: 34 }}
+            />
+          </div>
+
+          <button
+            className={`btn ${showFilters ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setShowFilters(value => !value)}
+            style={{ minWidth: 118, justifyContent: 'center' }}
+          >
+            <SlidersHorizontal size={15} />
+            {activeFilterCount > 0 ? `Filtros (${activeFilterCount})` : 'Filtros'}
+          </button>
         </div>
 
-        <select
-          className="input"
-          value={deptoFilter}
-          onChange={e => setDeptoFilter(e.target.value)}
-          style={{ flex: '0 1 210px', cursor: 'pointer' }}
-        >
-          <option value="">Todos os setores</option>
-          {SETORES.map(setor => (
-            <option key={setor} value={setor}>{setor}</option>
-          ))}
-        </select>
+        {activeChips.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {activeChips.map(chip => (
+              <button
+                key={chip.key}
+                className="btn btn-sm btn-outline"
+                onClick={chip.onRemove}
+                style={{ padding: '6px 10px', borderRadius: 999 }}
+              >
+                {chip.label}
+                <X size={12} />
+              </button>
+            ))}
+            <button className="btn btn-sm btn-ghost" onClick={clearFilters} style={{ padding: '6px 8px' }}>
+              Limpar
+            </button>
+          </div>
+        )}
 
-        <select
-          className="input"
-          value={periodFilter}
-          onChange={e => setPeriodFilter(e.target.value)}
-          style={{ flex: '0 1 170px', cursor: 'pointer' }}
-        >
-          <option value="">Todo período</option>
-          <option value="hoje">Hoje</option>
-          <option value="7dias">Últimos 7 dias</option>
-          <option value="30dias">Últimos 30 dias</option>
-        </select>
+        {showFilters && (
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                Filtros
+              </div>
+              {activeFilterCount > 0 && (
+                <button className="btn btn-sm btn-ghost" onClick={clearFilters} style={{ padding: '4px 6px' }}>
+                  Limpar filtros
+                </button>
+              )}
+            </div>
 
-        {aba !== 'pendentes' && (
-          <select
-            className="input"
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            style={{ flex: '0 1 180px', cursor: 'pointer' }}
-          >
-            <option value="">Todos os status</option>
-            {aba !== 'historico' && <option value={STATUS.PENDING}>Pendente</option>}
-            <option value={STATUS.APPROVED}>Aprovado</option>
-            <option value={STATUS.REJECTED}>Rejeitado</option>
-          </select>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+              <select
+                className="input"
+                value={deptoFilter}
+                onChange={e => setDeptoFilter(e.target.value)}
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">Todos os setores</option>
+                {SETORES.map(setor => (
+                  <option key={setor} value={setor}>{setor}</option>
+                ))}
+              </select>
+
+              <select
+                className="input"
+                value={periodFilter}
+                onChange={e => setPeriodFilter(e.target.value)}
+                style={{ cursor: 'pointer' }}
+              >
+                <option value="">Todo período</option>
+                <option value="hoje">Hoje</option>
+                <option value="7dias">Últimos 7 dias</option>
+                <option value="30dias">Últimos 30 dias</option>
+              </select>
+
+              {aba !== 'pendentes' && (
+                <select
+                  className="input"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <option value="">Todos os status</option>
+                  {aba !== 'historico' && <option value={STATUS.PENDING}>Pendente</option>}
+                  <option value={STATUS.APPROVED}>Aprovado</option>
+                  <option value={STATUS.REJECTED}>Rejeitado</option>
+                </select>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
