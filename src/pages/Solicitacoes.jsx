@@ -17,7 +17,8 @@ export default function Solicitacoes() {
   const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
   const navigate = useNavigate()
 
-  const [aba,          setAba]          = useState('minhas')
+  const defaultAba = isDirector ? 'pendentes' : 'minhas'
+  const [aba,          setAba]          = useState(defaultAba)
   const [itens,        setItens]        = useState([])
   const [loading,      setLoading]      = useState(true)
   const [search,       setSearch]       = useState('')
