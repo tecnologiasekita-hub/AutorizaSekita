@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { FilePlus, Search, Clock, CheckCircle, FileText, SlidersHorizontal, X } from 'lucide-react'
@@ -32,6 +32,7 @@ const PERIOD_LABELS = {
 }
 
 const STATUS_LABELS = {
+  andamento: 'Em andamento',
   [STATUS.PENDING]: 'Pendente',
   [STATUS.APPROVED]: 'Aprovado',
   [STATUS.REJECTED]: 'Rejeitado',
@@ -41,6 +42,7 @@ export default function Solicitacoes() {
   const { profile, isSupervisor, isDirector } = useAuth()
   const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
   const navigate = useNavigate()
+  const location = useLocation()
 
   const defaultAba = isDirector ? 'pendentes' : 'minhas'
   const [aba, setAba] = useState(defaultAba)
@@ -58,6 +60,26 @@ export default function Solicitacoes() {
   }, [profile, aba])
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const abaParam = params.get('aba')
+    const statusParam = params.get('status')
+    const periodParam = params.get('period')
+    const setorParam = params.get('setor')
+
+    if (abaParam && ABAS.some(item => item.id === abaParam)) setAba(abaParam)
+    if (periodParam && ['hoje', '7dias', '30dias'].includes(periodParam)) setPeriodFilter(periodParam)
+    else setPeriodFilter('')
+
+    if (setorParam) setDeptoFilter(setorParam)
+    else setDeptoFilter('')
+
+    if (statusParam) setStatusFilter(statusParam)
+    else setStatusFilter('')
+
+    setShowFilters(false)
+  }, [location.search])
+
+  useEffect(() => {
     async function countPend() {
       if (!profile) return
 
@@ -72,7 +94,7 @@ export default function Solicitacoes() {
 
       if (isSupervisor) {
         const { data: subs } = await supabase.from('profiles').select('id').eq('supervisor_id', profile.id)
-        const ids = (subs || []).map(p => p.id)
+        const ids = (subs || []).map(item => item.id)
         if (!ids.length) {
           setPendCount(0)
           return
@@ -126,7 +148,7 @@ export default function Solicitacoes() {
 
         if (isSupervisor) {
           const { data: subs } = await supabase.from('profiles').select('id').eq('supervisor_id', profile.id)
-          const ids = (subs || []).map(p => p.id)
+          const ids = (subs || []).map(item => item.id)
           if (!ids.length) {
             setItens([])
             return
@@ -149,8 +171,8 @@ export default function Solicitacoes() {
             .eq('status', 'pendente')
 
           const flat = (rows || [])
-            .filter(row => row.solicitacao && isPendingForDirector(row.solicitacao.status))
-            .map(row => ({ ...row.solicitacao, profiles: row.solicitacao.profiles, _minha_decisao: row.status }))
+            .filter(item => item.solicitacao && isPendingForDirector(item.solicitacao.status))
+            .map(item => ({ ...item.solicitacao, profiles: item.solicitacao.profiles, _minha_decisao: item.status }))
 
           setItens(flat)
           return
@@ -171,7 +193,7 @@ export default function Solicitacoes() {
 
         if (isSupervisor) {
           const { data: subs } = await supabase.from('profiles').select('id').eq('supervisor_id', profile.id)
-          const ids = (subs || []).map(p => p.id)
+          const ids = (subs || []).map(item => item.id)
           if (!ids.length) {
             setItens([])
             return
@@ -194,8 +216,8 @@ export default function Solicitacoes() {
             .neq('status', 'pendente')
 
           const flat = (rows || [])
-            .filter(row => row.solicitacao)
-            .map(row => ({ ...row.solicitacao, profiles: row.solicitacao.profiles, _minha_decisao: row.status }))
+            .filter(item => item.solicitacao)
+            .map(item => ({ ...item.solicitacao, profiles: item.solicitacao.profiles, _minha_decisao: item.status }))
 
           setItens(flat)
           return
@@ -229,7 +251,12 @@ export default function Solicitacoes() {
       (item.descricao || '').toLowerCase().includes(q) ||
       (item.profiles?.nome || '').toLowerCase().includes(q)
     const matchesDepto = !deptoFilter || item.setor_origem === deptoFilter
-    const matchesStatus = aba === 'pendentes' || !statusFilter || item.status === statusFilter
+    const matchesStatus =
+      aba === 'pendentes' ||
+      !statusFilter ||
+      (statusFilter === 'andamento' && [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED, STATUS.PARTIAL, STATUS.AGUARDA_TESOURARIA].includes(item.status)) ||
+      item.status === statusFilter
+
     const createdAt = item.created_at ? new Date(item.created_at) : null
     const now = new Date()
     const diffDays = createdAt ? (now - createdAt) / (1000 * 60 * 60 * 24) : null
@@ -245,7 +272,7 @@ export default function Solicitacoes() {
   const activeChips = [
     deptoFilter ? { key: 'depto', label: deptoFilter, onRemove: () => setDeptoFilter('') } : null,
     periodFilter ? { key: 'periodo', label: PERIOD_LABELS[periodFilter], onRemove: () => setPeriodFilter('') } : null,
-    statusFilter ? { key: 'status', label: STATUS_LABELS[statusFilter], onRemove: () => setStatusFilter('') } : null,
+    statusFilter ? { key: 'status', label: STATUS_LABELS[statusFilter] || statusFilter, onRemove: () => setStatusFilter('') } : null,
   ].filter(Boolean)
 
   const showMinhas = !isDirector
@@ -282,6 +309,7 @@ export default function Solicitacoes() {
                 setSearch('')
                 clearFilters()
                 setShowFilters(false)
+                navigate('/solicitacoes')
               }}
               style={{
                 display: 'flex',
@@ -315,13 +343,7 @@ export default function Solicitacoes() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: '1 1 220px' }}>
             <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
-            <input
-              className="input"
-              placeholder="Buscar..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: 34 }}
-            />
+            <input className="input" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 34 }} />
           </div>
 
           <button
@@ -337,12 +359,7 @@ export default function Solicitacoes() {
         {activeChips.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {activeChips.map(chip => (
-              <button
-                key={chip.key}
-                className="btn btn-sm btn-outline"
-                onClick={chip.onRemove}
-                style={{ padding: '6px 10px', borderRadius: 999 }}
-              >
+              <button key={chip.key} className="btn btn-sm btn-outline" onClick={chip.onRemove} style={{ padding: '6px 10px', borderRadius: 999 }}>
                 {chip.label}
                 <X size={12} />
               </button>
@@ -367,24 +384,14 @@ export default function Solicitacoes() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-              <select
-                className="input"
-                value={deptoFilter}
-                onChange={e => setDeptoFilter(e.target.value)}
-                style={{ cursor: 'pointer' }}
-              >
+              <select className="input" value={deptoFilter} onChange={e => setDeptoFilter(e.target.value)} style={{ cursor: 'pointer' }}>
                 <option value="">Todos os setores</option>
                 {SETORES.map(setor => (
                   <option key={setor} value={setor}>{setor}</option>
                 ))}
               </select>
 
-              <select
-                className="input"
-                value={periodFilter}
-                onChange={e => setPeriodFilter(e.target.value)}
-                style={{ cursor: 'pointer' }}
-              >
+              <select className="input" value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} style={{ cursor: 'pointer' }}>
                 <option value="">Todo período</option>
                 <option value="hoje">Hoje</option>
                 <option value="7dias">Últimos 7 dias</option>
@@ -392,14 +399,10 @@ export default function Solicitacoes() {
               </select>
 
               {aba !== 'pendentes' && (
-                <select
-                  className="input"
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  style={{ cursor: 'pointer' }}
-                >
+                <select className="input" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ cursor: 'pointer' }}>
                   <option value="">Todos os status</option>
                   {aba !== 'historico' && <option value={STATUS.PENDING}>Pendente</option>}
+                  {aba !== 'historico' && <option value="andamento">Em andamento</option>}
                   <option value={STATUS.APPROVED}>Aprovado</option>
                   <option value={STATUS.REJECTED}>Rejeitado</option>
                 </select>
