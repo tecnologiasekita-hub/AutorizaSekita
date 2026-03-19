@@ -80,14 +80,12 @@ export default function Perfil() {
 
         <div className="input-group">
           <label><Building2 size={11} style={{ display: 'inline', marginRight: 5 }} />Departamento</label>
-          <input className="input" value={form.departamento || '—'} disabled />
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Definido pelo administrador — não editável</span>
+          <input className="input" value={profile?.departamento || '—'} disabled />
         </div>
 
         <div className="input-group">
           <label><Shield size={11} style={{ display: 'inline', marginRight: 5 }} />Perfil de acesso</label>
           <input className="input" value={roleLabel[profile?.role] || ''} disabled />
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Definido pelo administrador — não editável</span>
         </div>
 
         {error && (
