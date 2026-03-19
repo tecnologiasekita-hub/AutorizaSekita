@@ -15,9 +15,9 @@ export const URGENCY = {
 }
 
 export const ROLE_LABELS = {
-  solicitante: 'Solicitante',
-  supervisor:  'Supervisor',
-  diretor:     'Diretor',
+  solicitante: 'SOLICITANTE',
+  supervisor:  'SUPERVISOR',
+  diretor:     'DIRETOR',
 }
 
 export const STATUS_META = {

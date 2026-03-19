@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import logoSekita from '../assets/logo-sekita.png'
+import logoSekita from '../assets/logo-sekita-sidebar.png'
 import { LayoutDashboard, FilePlus, FileText, User, LogOut, Bell, X, Menu } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ROLE_LABELS } from '../lib/workflow'
 
 export default function Layout() {
-  const { profile, canApprove, isDirector, signOut, notifications, unreadCount, markAllRead } = useAuth()
+  const { profile, isDirector, signOut, notifications, unreadCount, markAllRead } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -42,7 +42,9 @@ export default function Layout() {
     return (
       <aside style={styles.sidebar}>
         <div style={styles.logoWrap}>
-          <img src={logoSekita} alt="Sekita Agronegócios" style={{ width: 130, objectFit: 'contain', cursor: 'pointer' }} onClick={() => navigate('/dashboard')} />
+          <div style={styles.logoBadge} onClick={() => navigate('/dashboard')}>
+            <img src={logoSekita} alt="Sekita Agronegocios" style={styles.sidebarLogo} />
+          </div>
           <button onClick={() => setSidebarOpen(false)} style={{ ...styles.closeBtn, display: sidebarOpen ? 'flex' : 'none' }}>
             <X size={18} color="rgba(255,255,255,0.7)" />
           </button>
@@ -61,17 +63,15 @@ export default function Layout() {
 
         <div style={styles.userCard}>
           <div style={styles.avatar}>{profile?.nome?.charAt(0)?.toUpperCase() || 'U'}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {profile?.nome}
-            </div>
-            <span className={`badge ${roleClass[profile?.role]}`} style={{ fontSize: 10, padding: '1px 7px', marginTop: 3 }}>
+          <div style={styles.userInfo}>
+            <div style={styles.userName}>{profile?.nome}</div>
+            <span className={`badge ${roleClass[profile?.role]}`} style={styles.userBadge}>
               {ROLE_LABELS[profile?.role]}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: 2 }}>
-            <button className="btn btn-ghost btn-sm" style={{ padding: '5px 7px', color: 'rgba(255,255,255,0.6)' }} onClick={() => navigate('/perfil')} title="Perfil"><User size={14} /></button>
-            <button className="btn btn-ghost btn-sm" style={{ padding: '5px 7px', color: 'rgba(255,107,107,0.8)' }} onClick={signOut} title="Sair"><LogOut size={14} /></button>
+          <div style={styles.userActions}>
+            <button className="btn btn-ghost btn-sm" style={styles.profileActionBtn} onClick={() => navigate('/perfil')} title="Perfil"><User size={14} /></button>
+            <button className="btn btn-ghost btn-sm" style={styles.logoutActionBtn} onClick={signOut} title="Sair"><LogOut size={14} /></button>
           </div>
         </div>
       </aside>
@@ -99,7 +99,9 @@ export default function Layout() {
             <Menu size={20} />
           </button>
 
-          <img src={logoSekita} alt="Sekita" className="logo-mobile" style={styles.mobileLogo} />
+          <div className="logo-mobile" style={styles.mobileLogoWrap}>
+            <img src={logoSekita} alt="Sekita" style={styles.mobileLogo} />
+          </div>
 
           <div style={{ flex: 1 }} />
 
@@ -121,12 +123,12 @@ export default function Layout() {
             {showNotif && (
               <div style={styles.notifPanel} className="fade-in">
                 <div style={styles.notifHeader}>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Notificações</span>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>Notificacoes</span>
                   <button className="btn btn-ghost btn-sm" style={{ padding: '3px 5px' }} onClick={() => setShowNotif(false)}><X size={14} /></button>
                 </div>
                 <div style={styles.notifList}>
                   {notifications.length === 0 ? (
-                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Nenhuma notificação</div>
+                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Nenhuma notificacao</div>
                   ) : notifications.map(notification => (
                     <div
                       key={notification.id}
@@ -138,7 +140,7 @@ export default function Layout() {
                     >
                       <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>{notification.mensagem}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
-                        {format(new Date(notification.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                        {format(new Date(notification.created_at), "dd/MM 'as' HH:mm", { locale: ptBR })}
                       </div>
                     </div>
                   ))}
@@ -161,19 +163,28 @@ const styles = {
   sidebarDesktop: { display: 'flex', flexShrink: 0 },
   sidebarMobile: { position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 200, width: 240 },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199 },
-  sidebar: { width: 224, background: 'var(--green-brand)', display: 'flex', flexDirection: 'column', padding: '0 0 16px', height: '100vh', overflowY: 'auto', position: 'sticky', top: 0 },
-  logoWrap: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 18px 18px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: 8 },
+  sidebar: { width: 224, background: 'linear-gradient(180deg, var(--green-brand), var(--green-dark))', display: 'flex', flexDirection: 'column', padding: '0 0 16px', height: '100vh', overflowY: 'auto', position: 'sticky', top: 0 },
+  logoWrap: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, padding: '20px 14px 12px', marginBottom: 10 },
+  logoBadge: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flex: 1, minHeight: 56, padding: 0, background: 'transparent', border: 'none', borderRadius: 0, boxShadow: 'none', cursor: 'pointer' },
+  sidebarLogo: { width: 164, objectFit: 'contain' },
   closeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 },
   navLabel: { fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '6px 18px 4px' },
   nav: { display: 'flex', flexDirection: 'column', gap: 2, padding: '0 10px', flex: 1 },
-  navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.65)', transition: 'all 0.15s', textDecoration: 'none' },
+  navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.68)', transition: 'all 0.15s', textDecoration: 'none' },
   navItemActive: { background: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 600 },
-  userCard: { display: 'flex', alignItems: 'center', gap: 10, margin: '8px 10px 0', padding: '10px', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.08)' },
-  avatar: { width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'white', flexShrink: 0 },
+  userCard: { display: 'flex', alignItems: 'center', gap: 8, margin: '8px 10px 0', padding: '10px 10px', background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.08)' },
+  avatar: { width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'white', flexShrink: 0 },
+  userInfo: { flex: 1, minWidth: 0, maxWidth: 92, display: 'flex', flexDirection: 'column', gap: 4 },
+  userName: { fontWeight: 600, fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  userBadge: { fontSize: 8, fontWeight: 700, maxWidth: '100%', height: 18, padding: '0 8px', alignSelf: 'stretch', justifyContent: 'center', lineHeight: 1, textAlign: 'center', letterSpacing: '0.02em', overflow: 'hidden' },
+  userActions: { display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', flexShrink: 0 },
+  profileActionBtn: { padding: '5px', minWidth: 26, minHeight: 26, color: 'rgba(255,255,255,0.88)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' },
+  logoutActionBtn: { padding: '5px', minWidth: 26, minHeight: 26, color: 'rgba(255,214,214,0.96)', background: 'rgba(192,57,43,0.16)', border: '1px solid rgba(255,255,255,0.08)' },
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' },
   topbar: { height: 54, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 8, background: 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(26,92,56,0.06)' },
   menuBtn: { padding: '6px 8px' },
-  mobileLogo: { height: 28, objectFit: 'contain' },
+  mobileLogoWrap: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 112, height: 34, padding: '4px 10px', borderRadius: 999, background: 'linear-gradient(180deg, #ffffff, #f6faf7)', border: '1px solid rgba(26,92,56,0.12)', boxShadow: '0 4px 14px rgba(26,92,56,0.08)' },
+  mobileLogo: { height: 21, objectFit: 'contain', filter: 'drop-shadow(0 1px 6px rgba(26,92,56,0.08))' },
   content: { flex: 1, padding: '24px 20px', overflowY: 'auto', maxWidth: 1100, width: '100%', margin: '0 auto', height: '100%' },
   notifPanel: { position: 'fixed', right: 12, top: 62, width: 'min(340px, calc(100vw - 24px))', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 300, overflow: 'hidden' },
   notifHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' },

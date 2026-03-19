@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { User, Mail, Building2, Save, Shield } from 'lucide-react'
+import { ROLE_LABELS } from '../lib/workflow'
 
-const roleLabel = { solicitante: 'Solicitante', supervisor: 'Supervisor', diretor: 'Diretor' }
 const roleClass = { solicitante: 'badge-solicitante', supervisor: 'badge-supervisor', diretor: 'badge-diretor' }
 
 export default function Perfil() {
@@ -48,7 +48,7 @@ export default function Perfil() {
           <div style={{ fontWeight: 700, fontSize: 18 }}>{profile?.nome}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
             <span className={`badge ${roleClass[profile?.role]}`}>
-              {roleLabel[profile?.role]}
+              {ROLE_LABELS[profile?.role]}
             </span>
             {profile?.departamento && (
               <span style={{ fontSize: 12, color: 'var(--text-3)' }}>{profile.departamento}</span>
@@ -84,7 +84,7 @@ export default function Perfil() {
 
         <div className="input-group">
           <label><Shield size={11} style={{ display: 'inline', marginRight: 5 }} />Perfil de acesso</label>
-          <input className="input" value={roleLabel[profile?.role] || ''} disabled />
+          <input className="input" value={ROLE_LABELS[profile?.role] || ''} disabled />
         </div>
 
         {error && (
