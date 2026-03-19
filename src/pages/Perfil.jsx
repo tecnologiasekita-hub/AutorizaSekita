@@ -31,7 +31,6 @@ export default function Perfil() {
         <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
           Meu Perfil
         </h1>
-        <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>Gerencie suas informações pessoais</p>
       </div>
 
       {/* Avatar card */}
