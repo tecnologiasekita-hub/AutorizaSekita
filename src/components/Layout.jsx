@@ -99,10 +99,6 @@ export default function Layout() {
             <Menu size={20} />
           </button>
 
-          <div className="logo-mobile" style={styles.mobileLogoWrap}>
-            <img src={logoSekita} alt="Sekita" style={styles.mobileLogo} />
-          </div>
-
           <div style={{ flex: 1 }} />
 
           <div style={{ position: 'relative' }} ref={notifRef}>
@@ -183,8 +179,6 @@ const styles = {
   main: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' },
   topbar: { height: 54, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 16px', gap: 8, background: 'var(--bg-card)', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 3px rgba(26,92,56,0.06)' },
   menuBtn: { padding: '6px 8px' },
-  mobileLogoWrap: { display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 112, height: 34, padding: '4px 10px', borderRadius: 999, background: 'linear-gradient(180deg, #ffffff, #f6faf7)', border: '1px solid rgba(26,92,56,0.12)', boxShadow: '0 4px 14px rgba(26,92,56,0.08)' },
-  mobileLogo: { height: 21, objectFit: 'contain', filter: 'drop-shadow(0 1px 6px rgba(26,92,56,0.08))' },
   content: { flex: 1, padding: '24px 20px', overflowY: 'auto', maxWidth: 1100, width: '100%', margin: '0 auto', height: '100%' },
   notifPanel: { position: 'fixed', right: 12, top: 62, width: 'min(340px, calc(100vw - 24px))', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 300, overflow: 'hidden' },
   notifHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)' },
