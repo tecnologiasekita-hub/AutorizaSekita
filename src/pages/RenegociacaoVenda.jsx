@@ -86,9 +86,9 @@ const MOTIVO_VALUE_MAP = {
 }
 
 const JUSTIFICATIVAS = [
-  'Nova data',
-  'Novo valor',
-  'Nova data e novo valor',
+  { value: 'Nova data', label: 'Nova data' },
+  { value: 'Novo valor', label: 'Novo valor' },
+  { value: 'Nova data e novo valor', label: 'Nova data e novo valor' },
 ]
 
 function fileIcon(mime) {
@@ -112,6 +112,7 @@ export default function RenegociacaoVenda() {
   const [motivoPrincipal, setMotivoPrincipal] = useState('')
   const [motivoSubgrupo, setMotivoSubgrupo] = useState('')
   const [motivoAcao, setMotivoAcao] = useState('')
+  const [justificativaTipo, setJustificativaTipo] = useState('')
 
   const isSupervisor = profile?.role === 'supervisor'
   const isDirector = profile?.role === 'diretor'
@@ -127,6 +128,8 @@ export default function RenegociacaoVenda() {
     motivo: '',
     justificativa: '',
     nova_data: '',
+    nova_data_2: '',
+    nova_data_3: '',
     novo_valor: '0.00',
     observacao: '',
   })
@@ -183,6 +186,25 @@ export default function RenegociacaoVenda() {
     }
   }
 
+  function getParcelDates() {
+    return [form.nova_data, form.nova_data_2, form.nova_data_3].filter(Boolean)
+  }
+
+  function handleJustificativaChange(value) {
+    setJustificativaTipo(value)
+    setField('justificativa', value)
+
+    if (value === 'Nova data') {
+      setField('novo_valor', '0.00')
+    }
+
+    if (value === 'Novo valor') {
+      setField('nova_data', '')
+      setField('nova_data_2', '')
+      setField('nova_data_3', '')
+    }
+  }
+
   useEffect(() => {
     async function load() {
       setLoadingSetup(true)
@@ -236,6 +258,8 @@ export default function RenegociacaoVenda() {
 
   async function handleSubmit() {
     setError('')
+    const parcelDates = getParcelDates()
+    const exigeNovaData = form.justificativa === 'Nova data' || form.justificativa === 'Nova data e novo valor'
 
     if (!form.empresa_origem) return setError('Selecione a empresa de origem.')
     if (!form.cliente.trim()) return setError('Informe o cliente.')
@@ -247,8 +271,12 @@ export default function RenegociacaoVenda() {
     if (!form.motivo) return setError('Selecione um motivo.')
     if (!form.justificativa) return setError('Selecione a justificativa.')
 
-    if ((form.justificativa === 'Nova data' || form.justificativa === 'Nova data e novo valor') && !form.nova_data) {
-      return setError('Informe a nova data.')
+    if (exigeNovaData && parcelDates.length < 1) {
+      return setError('Informe pelo menos uma nova data.')
+    }
+
+    if ((form.justificativa === 'Novo valor' || form.justificativa === 'Nova data e novo valor') && String(form.novo_valor).trim() === '') {
+      return setError('Informe o novo valor.')
     }
 
     if ((form.justificativa === 'Novo valor' || form.justificativa === 'Nova data e novo valor') && Number(form.novo_valor) < 0) {
@@ -275,7 +303,7 @@ export default function RenegociacaoVenda() {
         'Valor (R$): ' + Number(form.valor).toFixed(2),
         'Motivo: ' + (motivo?.label || form.motivo),
         'Justificativa: ' + form.justificativa,
-        form.nova_data ? 'Nova data: ' + form.nova_data : '',
+        parcelDates.length > 0 ? 'Novas datas: ' + parcelDates.join(', ') : '',
         form.justificativa !== 'Nova data' ? 'Novo valor (R$): ' + Number(form.novo_valor || 0).toFixed(2) : '',
         form.observacao.trim() ? 'Observação: ' + form.observacao.trim() : '',
       ].filter(Boolean).join('\n')
@@ -298,6 +326,9 @@ export default function RenegociacaoVenda() {
           motivo_label: motivo?.label || form.motivo,
           justificativa: form.justificativa,
           nova_data: form.nova_data || null,
+          nova_data_2: form.nova_data_2 || null,
+          nova_data_3: form.nova_data_3 || null,
+          novas_datas: parcelDates,
           novo_valor: form.justificativa === 'Nova data' ? null : Number(form.novo_valor || 0),
           observacao: form.observacao.trim() || null,
         },
@@ -507,26 +538,57 @@ export default function RenegociacaoVenda() {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-          <div className="input-group">
-            <label>Justificativa *</label>
-            <select className="input" value={form.justificativa} onChange={e => setField('justificativa', e.target.value)}>
+        <div className="card" style={{ padding: 16, background: 'var(--bg-2)', borderColor: 'var(--border)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 14 }}>
+            Justificativa
+          </div>
+
+          <div className="input-group" style={{ marginBottom: justificativaTipo ? 14 : 0 }}>
+            <label>Justificativa principal *</label>
+            <select className="input" value={form.justificativa} onChange={e => handleJustificativaChange(e.target.value)}>
               <option value="">Selecione a justificativa</option>
               {JUSTIFICATIVAS.map(item => (
-                <option key={item} value={item}>{item}</option>
+                <option key={item.value} value={item.value}>{item.label}</option>
               ))}
             </select>
           </div>
 
-          <div className="input-group">
-            <label>Nova data</label>
-            <input className="input" type="date" value={form.nova_data} onChange={e => setField('nova_data', e.target.value)} />
-          </div>
+          {(justificativaTipo === 'Nova data' || justificativaTipo === 'Nova data e novo valor') && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: justificativaTipo === 'Nova data e novo valor' ? 14 : 0 }}>
+              <div className="input-group">
+                <label>Nova data 1 *</label>
+                <input className="input" type="date" value={form.nova_data} onChange={e => setField('nova_data', e.target.value)} />
+              </div>
 
-          <div className="input-group">
-            <label>Novo valor</label>
-            <input className="input" type="number" min="0" step="0.01" value={form.novo_valor} onChange={e => setField('novo_valor', e.target.value)} />
-          </div>
+              <div className="input-group">
+                <label>Nova data 2</label>
+                <input className="input" type="date" value={form.nova_data_2} onChange={e => setField('nova_data_2', e.target.value)} />
+              </div>
+
+              <div className="input-group">
+                <label>Nova data 3</label>
+                <input className="input" type="date" value={form.nova_data_3} onChange={e => setField('nova_data_3', e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {(justificativaTipo === 'Novo valor' || justificativaTipo === 'Nova data e novo valor') && (
+            <div className="input-group">
+              <label>Novo valor *</label>
+              <input className="input" type="number" min="0" step="0.01" value={form.novo_valor} onChange={e => setField('novo_valor', e.target.value)} />
+            </div>
+          )}
+
+          {justificativaTipo && (
+            <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)', background: 'var(--accent-dim)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 3 }}>
+                Justificativa selecionada
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>
+                {form.justificativa}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="input-group">

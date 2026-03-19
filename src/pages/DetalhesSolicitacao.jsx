@@ -562,6 +562,8 @@ function RenegociacaoDetails({ dados, descricao }) {
     )
   }
 
+  const novasDatas = getInstallmentDates(parsedDados)
+
   const rows = [
     ['Empresa de origem', parsedDados.empresa_origem],
     ['Cliente', parsedDados.cliente],
@@ -572,7 +574,7 @@ function RenegociacaoDetails({ dados, descricao }) {
     ['Valor', parsedDados.valor != null ? formatMoneyValue(parsedDados.valor) : null],
     ['Motivo', parsedDados.motivo_label || parsedDados.motivo],
     ['Justificativa', parsedDados.justificativa],
-    ['Nova data', formatDateValue(parsedDados.nova_data)],
+    ['Novas datas', novasDatas.length ? novasDatas.map(formatDateValue).join('\n') : null],
     ['Novo valor', parsedDados.novo_valor != null ? formatMoneyValue(parsedDados.novo_valor) : null],
     ['Observacao', parsedDados.observacao],
   ].filter(([, value]) => value !== null && value !== undefined && value !== '')
@@ -594,6 +596,14 @@ function RenegociacaoDetails({ dados, descricao }) {
       </div>
     </>
   )
+}
+
+function getInstallmentDates(dados) {
+  const datas = Array.isArray(dados?.novas_datas)
+    ? dados.novas_datas
+    : [dados?.nova_data, dados?.nova_data_2, dados?.nova_data_3]
+
+  return datas.filter(Boolean)
 }
 
 function normalizeFormData(dados) {
