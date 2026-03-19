@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import logoSekita from '../assets/logo-sekita.png'
-import { LayoutDashboard, FilePlus, FileText, CheckSquare, User, LogOut, Bell, X, Menu } from 'lucide-react'
+import { LayoutDashboard, FilePlus, FileText, User, LogOut, Bell, X, Menu } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ROLE_LABELS } from '../lib/workflow'
@@ -33,8 +33,7 @@ export default function Layout() {
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     ...(!isDirector ? [{ to: '/nova-solicitacao', icon: FilePlus, label: 'Nova solicitação' }] : []),
-    ...(!isDirector ? [{ to: '/minhas-solicitacoes', icon: FileText, label: 'Minhas solicitações' }] : []),
-    ...(canApprove ? [{ to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações' }] : []),
+    { to: '/solicitacoes', icon: FileText, label: 'Solicitações' },
   ]
 
   const roleClass = { solicitante: 'badge-solicitante', supervisor: 'badge-supervisor', diretor: 'badge-diretor' }
