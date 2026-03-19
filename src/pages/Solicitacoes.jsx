@@ -14,7 +14,7 @@ const SETORES = [
   'Contas a Pagar',
   'Compras',
   'Assinatura Digital',
-  'Juridico',
+  'Jurídico',
   'Financeiro',
   'Comercial',
 ]
@@ -22,7 +22,7 @@ const SETORES = [
 const ABAS = [
   { id: 'minhas', label: 'Minhas', icon: FileText },
   { id: 'pendentes', label: 'Pendentes', icon: Clock },
-  { id: 'concluidas', label: 'Concluidas', icon: CheckCircle },
+  { id: 'concluidas', label: 'Concluídas', icon: CheckCircle },
 ]
 
 const STATUS_PENDENTES = [
@@ -39,8 +39,8 @@ const STATUS_CONCLUIDAS = [
 
 const PERIOD_LABELS = {
   hoje: 'Hoje',
-  '7dias': 'Ultimos 7 dias',
-  '30dias': 'Ultimos 30 dias',
+  '7dias': 'Últimos 7 dias',
+  '30dias': 'Últimos 30 dias',
 }
 
 const STATUS_LABELS = {
@@ -320,11 +320,11 @@ export default function Solicitacoes() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }} className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 22, fontWeight: 700, color: 'var(--green-brand)' }}>
-          Solicitacoes
+          Solicitações
         </h1>
         {!isDirector && (
           <button className="btn btn-primary" onClick={() => navigate('/nova-solicitacao')}>
-            <FilePlus size={15} /> Nova solicitacao
+            <FilePlus size={15} /> Nova solicitação
           </button>
         )}
       </div>
@@ -425,10 +425,10 @@ export default function Solicitacoes() {
               </select>
 
               <select className="input" value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} style={{ cursor: 'pointer' }}>
-                <option value="">Todo periodo</option>
+                <option value="">Todo período</option>
                 <option value="hoje">Hoje</option>
-                <option value="7dias">Ultimos 7 dias</option>
-                <option value="30dias">Ultimos 30 dias</option>
+                <option value="7dias">Últimos 7 dias</option>
+                <option value="30dias">Últimos 30 dias</option>
               </select>
 
               {aba !== 'pendentes' && (
@@ -454,14 +454,14 @@ export default function Solicitacoes() {
           <FileText size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
             {aba === 'minhas'
-              ? 'Nenhuma solicitacao criada ainda'
+              ? 'Nenhuma solicitação criada ainda'
               : aba === 'pendentes'
-                ? 'Nenhuma pendencia no momento'
-                : 'Nenhuma solicitacao concluida ainda'}
+                ? 'Nenhuma pendência no momento'
+                : 'Nenhuma solicitação concluída ainda'}
           </div>
           {aba === 'minhas' && !isDirector && (
             <div style={{ fontSize: 13 }}>
-              Clique em <strong>Nova solicitacao</strong> para comecar.
+              Clique em <strong>Nova solicitação</strong> para começar.
             </div>
           )}
         </div>

@@ -132,10 +132,10 @@ export default function Aprovacoes() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }} className="fade-in">
       <div>
         <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
-          Aprovacoes
+          Aprovações
         </h1>
         <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>
-          Fila de aprovacao como {roleName}
+          Fila de aprovação como {roleName}
         </p>
       </div>
 
@@ -143,8 +143,8 @@ export default function Aprovacoes() {
         <div style={{ fontSize: 13, color: roleColor }}>
           <strong>Como {roleName}:</strong>{' '}
           {isSupervisor
-            ? 'Voce faz a primeira analise das solicitacoes enviadas pelos solicitantes.'
-            : 'Voce decide as solicitacoes que foram direcionadas para voce apos aprovacao do supervisor.'}
+            ? 'Você faz a primeira análise das solicitações enviadas pelos solicitantes.'
+            : 'Você decide as solicitações que foram direcionadas para você após aprovação do supervisor.'}
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export default function Aprovacoes() {
             className={`btn btn-sm ${filter === 'historico' ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setFilter('historico')}
           >
-            <CheckSquare size={13} /> Historico
+            <CheckSquare size={13} /> Histórico
           </button>
         </div>
 
@@ -211,7 +211,7 @@ export default function Aprovacoes() {
         <div className="card" style={{ textAlign: 'center', padding: 52, color: 'var(--text-3)' }}>
           <CheckSquare size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
-            {filter === 'pendentes' ? 'Nenhuma pendencia no momento' : 'Nenhuma acao registrada ainda'}
+            {filter === 'pendentes' ? 'Nenhuma pendência no momento' : 'Nenhuma ação registrada ainda'}
           </div>
         </div>
       ) : (
