@@ -2,79 +2,76 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { CheckSquare, Search, Clock, AlertTriangle } from 'lucide-react'
+import { CheckSquare, Search, Clock } from 'lucide-react'
 import { format } from 'date-fns'
-import { URGENCY_META, getStatusMeta, isPendingForDirector, isPendingForSupervisor } from '../lib/workflow'
+import { getStatusMeta, isPendingForDirector, isPendingForSupervisor } from '../lib/workflow'
 
 export default function Aprovacoes() {
   const { profile, isSupervisor, isDirector } = useAuth()
   const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
   const navigate = useNavigate()
 
-  const [solicitacoes,    setSolicitacoes]    = useState([])
-  const [loading,         setLoading]         = useState(true)
-  const [search,          setSearch]          = useState('')
-  const [filter,          setFilter]          = useState('pendentes')
-  const [sortByUrgencia,  setSortByUrgencia]  = useState(false)
-  const [deptoFilter,     setDeptoFilter]     = useState('')
+  const [solicitacoes, setSolicitacoes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('pendentes')
+  const [deptoFilter, setDeptoFilter] = useState('')
 
-  useEffect(() => { if (profile) fetchSolicitacoes() }, [profile, filter, deptoFilter])
+  useEffect(() => {
+    if (profile) fetchSolicitacoes()
+  }, [profile, filter, deptoFilter])
 
   async function fetchSolicitacoes() {
     if (!profile) return
     setLoading(true)
+
     try {
       if (isTesouraria) {
-        // Supervisor Tesouraria — tratado primeiro pois também é isSupervisor
         let query = supabase
           .from('solicitacoes')
           .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
           .eq('requer_tesouraria', true)
           .order('created_at', { ascending: false })
 
-        if (filter === 'pendentes') {
-          query = query.eq('status', 'aguarda_tesouraria')
-        } else {
-          query = query.neq('status', 'aguarda_tesouraria')
-        }
+        query = filter === 'pendentes'
+          ? query.eq('status', 'aguarda_tesouraria')
+          : query.neq('status', 'aguarda_tesouraria')
 
         if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
         const { data } = await query
         setSolicitacoes(data || [])
+        return
+      }
 
-      } else if (isSupervisor) {
-        // 1. Busca IDs dos solicitantes vinculados a este supervisor
+      if (isSupervisor) {
         const { data: subordinados } = await supabase
           .from('profiles')
           .select('id')
           .eq('supervisor_id', profile.id)
 
-        const ids = (subordinados || []).map(p => p.id)
-
-        if (ids.length === 0) {
+        const ids = (subordinados || []).map(item => item.id)
+        if (!ids.length) {
           setSolicitacoes([])
           return
         }
 
-        // 2. Busca solicitações apenas desses solicitantes
         let query = supabase
           .from('solicitacoes')
           .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
           .in('solicitante_id', ids)
           .order('created_at', { ascending: false })
 
-        if (filter === 'pendentes') {
-          query = query.eq('status', 'pendente')
-        } else {
-          query = query.neq('status', 'pendente')
-        }
+        query = filter === 'pendentes'
+          ? query.eq('status', 'pendente')
+          : query.neq('status', 'pendente')
 
         if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
         const { data } = await query
         setSolicitacoes(data || [])
+        return
+      }
 
-      } else if (isDirector) {
-        // Diretor vê somente as solicitações onde ele foi selecionado
+      if (isDirector) {
         let query = supabase
           .from('solicitacao_diretores')
           .select(`
@@ -87,15 +84,13 @@ export default function Aprovacoes() {
           .eq('diretor_id', profile.id)
           .order('created_at', { ascending: false })
 
-        if (filter === 'pendentes') {
-          query = query.eq('status', 'pendente')
-        } else {
-          query = query.neq('status', 'pendente')
-        }
+        query = filter === 'pendentes'
+          ? query.eq('status', 'pendente')
+          : query.neq('status', 'pendente')
 
         if (deptoFilter) query = query.eq('solicitacao.setor_origem', deptoFilter)
         const { data } = await query
-        // Normaliza estrutura para ter o mesmo shape
+
         const flat = (data || [])
           .filter(row => row.solicitacao)
           .filter(row => {
@@ -107,6 +102,7 @@ export default function Aprovacoes() {
             profiles: row.solicitacao.profiles,
             _minha_decisao: row.status,
           }))
+
         setSolicitacoes(flat)
       }
     } finally {
@@ -114,40 +110,32 @@ export default function Aprovacoes() {
     }
   }
 
-  let filtered = solicitacoes.filter(item => {
-    if (deptoFilter && item.setor_origem !== deptoFilter) return false
-    return true
-  }).filter(item =>
-    item.titulo.toLowerCase().includes(search.toLowerCase()) ||
-    (item.profiles?.nome || '').toLowerCase().includes(search.toLowerCase())
-  )
-
-  if (sortByUrgencia) {
-    filtered = [...filtered].sort((a, b) =>
-      (URGENCY_META[a.urgencia]?.order ?? 2) - (URGENCY_META[b.urgencia]?.order ?? 2)
+  const filtered = solicitacoes
+    .filter(item => !deptoFilter || item.setor_origem === deptoFilter)
+    .filter(item =>
+      item.titulo.toLowerCase().includes(search.toLowerCase()) ||
+      (item.profiles?.nome || '').toLowerCase().includes(search.toLowerCase())
     )
-  }
 
   const pendingCount = solicitacoes.filter(item => {
-    if (isSupervisor) return isPendingForSupervisor(item.status)
-    if (isDirector)   return isPendingForDirector(item.status) && item._minha_decisao === 'pendente'
     if (isTesouraria) return item.status === 'aguarda_tesouraria'
+    if (isSupervisor) return isPendingForSupervisor(item.status)
+    if (isDirector) return isPendingForDirector(item.status) && item._minha_decisao === 'pendente'
     return false
   }).length
 
-  const roleName  = isTesouraria ? 'Tesouraria' : isSupervisor ? 'Supervisor' : 'Diretor'
+  const roleName = isTesouraria ? 'Tesouraria' : isSupervisor ? 'Supervisor' : 'Diretor'
   const roleColor = isSupervisor ? 'var(--blue)' : 'var(--accent-2)'
-  const roleBg    = isSupervisor ? 'var(--blue-bg)' : 'var(--accent-2-dim)'
+  const roleBg = isSupervisor ? 'var(--blue-bg)' : 'var(--accent-2-dim)'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }} className="fade-in">
-
       <div>
         <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
-          Aprovações
+          Aprovacoes
         </h1>
         <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>
-          Fila de aprovação como {roleName}
+          Fila de aprovacao como {roleName}
         </p>
       </div>
 
@@ -155,12 +143,11 @@ export default function Aprovacoes() {
         <div style={{ fontSize: 13, color: roleColor }}>
           <strong>Como {roleName}:</strong>{' '}
           {isSupervisor
-            ? 'Você faz a primeira análise das solicitações enviadas pelos solicitantes.'
-            : 'Você decide as solicitações que foram direcionadas para você após aprovação do supervisor.'}
+            ? 'Voce faz a primeira analise das solicitacoes enviadas pelos solicitantes.'
+            : 'Voce decide as solicitacoes que foram direcionadas para voce apos aprovacao do supervisor.'}
         </div>
       </div>
 
-      {/* Filtros */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6 }} className="filter-scroll">
           <button
@@ -175,22 +162,16 @@ export default function Aprovacoes() {
               </span>
             )}
           </button>
+
           <button
             className={`btn btn-sm ${filter === 'historico' ? 'btn-primary' : 'btn-outline'}`}
             onClick={() => setFilter('historico')}
           >
-            <CheckSquare size={13} /> Histórico
+            <CheckSquare size={13} /> Historico
           </button>
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            className={`btn btn-sm ${sortByUrgencia ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setSortByUrgencia(v => !v)}
-            title="Ordenar por urgência"
-          >
-            <AlertTriangle size={13} /> Por urgência
-          </button>
           <div style={{ position: 'relative' }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
             <input
@@ -201,6 +182,7 @@ export default function Aprovacoes() {
               style={{ paddingLeft: 32, width: 200 }}
             />
           </div>
+
           <select
             className="input"
             value={deptoFilter}
@@ -215,13 +197,12 @@ export default function Aprovacoes() {
             <option value="Contas a Pagar">Contas a Pagar</option>
             <option value="Compras">Compras</option>
             <option value="Assinatura Digital">Assinatura Digital</option>
-            <option value="Jurídico">Jurídico</option>
+            <option value="Juridico">Juridico</option>
             <option value="Financeiro">Financeiro</option>
           </select>
         </div>
       </div>
 
-      {/* Lista */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
           <div className="spinner" style={{ width: 28, height: 28 }} />
@@ -230,53 +211,66 @@ export default function Aprovacoes() {
         <div className="card" style={{ textAlign: 'center', padding: 52, color: 'var(--text-3)' }}>
           <CheckSquare size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
-            {filter === 'pendentes' ? 'Nenhuma pendência no momento' : 'Nenhuma ação registrada ainda'}
+            {filter === 'pendentes' ? 'Nenhuma pendencia no momento' : 'Nenhuma acao registrada ainda'}
           </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(item => {
-            const status  = getStatusMeta(item.status)
-            const urgency = URGENCY_META[item.urgencia]
+            const status = getStatusMeta(item.status)
+
             return (
               <div
                 key={item.id}
                 className="card"
                 onClick={() => navigate(`/solicitacao/${item.id}`)}
                 style={{ cursor: 'pointer', transition: 'all 0.15s' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.background = 'var(--bg-card-2)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)' }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--border-light)'
+                  e.currentTarget.style.background = 'var(--bg-card-2)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--border)'
+                  e.currentTarget.style.background = 'var(--bg-card)'
+                }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
                       {item.numero && (
-                        <span style={{
-                          fontSize: 12, fontWeight: 700, color: 'white',
-                          background: 'var(--accent)', borderRadius: 4,
-                          padding: '2px 7px', flexShrink: 0,
-                        }}>#{item.numero}</span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: 'white',
+                            background: 'var(--accent)',
+                            borderRadius: 4,
+                            padding: '2px 7px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          #{item.numero}
+                        </span>
                       )}
                       <span style={{ fontWeight: 600, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.titulo}
                       </span>
                     </div>
+
                     <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <span>Por: <strong style={{ color: 'var(--text-2)' }}>{item.profiles?.nome}</strong></span>
                       {item.profiles?.departamento && <span>{item.profiles.departamento}</span>}
-                      <span>{format(new Date(item.created_at), "dd/MM 'às' HH:mm")}</span>
+                      <span>{format(new Date(item.created_at), "dd/MM 'as' HH:mm")}</span>
                       {item.valor != null && (
                         <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                       )}
                     </div>
                   </div>
+
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
                     <span className={`badge ${status.cls}`}>
                       <span className={`status-dot ${status.dot}`} />
                       {status.label}
-                    </span>
-                    <span style={{ fontSize: 11, color: urgency?.color || 'var(--text-3)', fontWeight: 600 }}>
-                      {urgency?.label || 'Normal'}
                     </span>
                   </div>
                 </div>

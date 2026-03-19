@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { FilePlus, Search, Clock, CheckCircle, FileText, SlidersHorizontal, X } from 'lucide-react'
 import { format } from 'date-fns'
-import { STATUS, URGENCY_META, getStatusMeta, isPendingForDirector } from '../lib/workflow'
+import { STATUS, getStatusMeta } from '../lib/workflow'
 
 const SETORES = [
   'TI',
@@ -14,7 +14,7 @@ const SETORES = [
   'Contas a Pagar',
   'Compras',
   'Assinatura Digital',
-  'Jurídico',
+  'Juridico',
   'Financeiro',
   'Comercial',
 ]
@@ -22,13 +22,25 @@ const SETORES = [
 const ABAS = [
   { id: 'minhas', label: 'Minhas', icon: FileText },
   { id: 'pendentes', label: 'Pendentes', icon: Clock },
-  { id: 'historico', label: 'Histórico', icon: CheckCircle },
+  { id: 'concluidas', label: 'Concluidas', icon: CheckCircle },
+]
+
+const STATUS_PENDENTES = [
+  STATUS.PENDING,
+  STATUS.SUPERVISOR_APPROVED,
+  STATUS.PARTIAL,
+  STATUS.AGUARDA_TESOURARIA,
+]
+
+const STATUS_CONCLUIDAS = [
+  STATUS.APPROVED,
+  STATUS.REJECTED,
 ]
 
 const PERIOD_LABELS = {
   hoje: 'Hoje',
-  '7dias': 'Últimos 7 dias',
-  '30dias': 'Últimos 30 dias',
+  '7dias': 'Ultimos 7 dias',
+  '30dias': 'Ultimos 30 dias',
 }
 
 const STATUS_LABELS = {
@@ -65,8 +77,9 @@ export default function Solicitacoes() {
     const statusParam = params.get('status')
     const periodParam = params.get('period')
     const setorParam = params.get('setor')
+    const abaNormalizada = abaParam === 'historico' ? 'concluidas' : abaParam
 
-    if (abaParam && ABAS.some(item => item.id === abaParam)) setAba(abaParam)
+    if (abaNormalizada && ABAS.some(item => item.id === abaNormalizada)) setAba(abaNormalizada)
     if (periodParam && ['hoje', '7dias', '30dias'].includes(periodParam)) setPeriodFilter(periodParam)
     else setPeriodFilter('')
 
@@ -87,34 +100,39 @@ export default function Solicitacoes() {
         const { count } = await supabase
           .from('solicitacoes')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'aguarda_tesouraria')
+          .eq('requer_tesouraria', true)
+          .in('status', STATUS_PENDENTES)
+
         setPendCount(count || 0)
         return
       }
 
       if (isSupervisor) {
-        const { data: subs } = await supabase.from('profiles').select('id').eq('supervisor_id', profile.id)
-        const ids = (subs || []).map(item => item.id)
-        if (!ids.length) {
-          setPendCount(0)
-          return
-        }
+        const { data: subs } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('supervisor_id', profile.id)
+
+        const ids = [...new Set([profile.id, ...(subs || []).map(item => item.id)])]
+
         const { count } = await supabase
           .from('solicitacoes')
           .select('*', { count: 'exact', head: true })
-          .eq('status', STATUS.PENDING)
           .in('solicitante_id', ids)
+          .in('status', STATUS_PENDENTES)
+
         setPendCount(count || 0)
         return
       }
 
       if (isDirector) {
-        const { count } = await supabase
+        const { data: rows } = await supabase
           .from('solicitacao_diretores')
-          .select('*', { count: 'exact', head: true })
+          .select('solicitacao:solicitacoes(status)')
           .eq('diretor_id', profile.id)
-          .eq('status', 'pendente')
-        setPendCount(count || 0)
+
+        const count = (rows || []).filter(row => STATUS_PENDENTES.includes(row.solicitacao?.status)).length
+        setPendCount(count)
       }
     }
 
@@ -130,6 +148,7 @@ export default function Solicitacoes() {
           .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
           .eq('solicitante_id', profile.id)
           .order('created_at', { ascending: false })
+
         setItens(data || [])
         return
       }
@@ -139,26 +158,29 @@ export default function Solicitacoes() {
           const { data } = await supabase
             .from('solicitacoes')
             .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-            .eq('status', 'aguarda_tesouraria')
             .eq('requer_tesouraria', true)
+            .in('status', STATUS_PENDENTES)
             .order('created_at', { ascending: false })
+
           setItens(data || [])
           return
         }
 
         if (isSupervisor) {
-          const { data: subs } = await supabase.from('profiles').select('id').eq('supervisor_id', profile.id)
-          const ids = (subs || []).map(item => item.id)
-          if (!ids.length) {
-            setItens([])
-            return
-          }
+          const { data: subs } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('supervisor_id', profile.id)
+
+          const ids = [...new Set([profile.id, ...(subs || []).map(item => item.id)])]
+
           const { data } = await supabase
             .from('solicitacoes')
             .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-            .eq('status', STATUS.PENDING)
             .in('solicitante_id', ids)
+            .in('status', STATUS_PENDENTES)
             .order('created_at', { ascending: false })
+
           setItens(data || [])
           return
         }
@@ -168,42 +190,48 @@ export default function Solicitacoes() {
             .from('solicitacao_diretores')
             .select('status, solicitacao:solicitacoes(*, profiles!solicitacoes_solicitante_id_fkey(nome))')
             .eq('diretor_id', profile.id)
-            .eq('status', 'pendente')
 
           const flat = (rows || [])
-            .filter(item => item.solicitacao && isPendingForDirector(item.solicitacao.status))
-            .map(item => ({ ...item.solicitacao, profiles: item.solicitacao.profiles, _minha_decisao: item.status }))
+            .filter(row => row.solicitacao && STATUS_PENDENTES.includes(row.solicitacao.status))
+            .map(row => ({
+              ...row.solicitacao,
+              profiles: row.solicitacao.profiles,
+              _minha_decisao: row.status,
+            }))
 
           setItens(flat)
           return
         }
       }
 
-      if (aba === 'historico') {
+      if (aba === 'concluidas') {
         if (isTesouraria) {
           const { data } = await supabase
             .from('solicitacoes')
             .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
             .eq('requer_tesouraria', true)
-            .neq('status', 'aguarda_tesouraria')
+            .in('status', STATUS_CONCLUIDAS)
             .order('created_at', { ascending: false })
+
           setItens(data || [])
           return
         }
 
         if (isSupervisor) {
-          const { data: subs } = await supabase.from('profiles').select('id').eq('supervisor_id', profile.id)
-          const ids = (subs || []).map(item => item.id)
-          if (!ids.length) {
-            setItens([])
-            return
-          }
+          const { data: subs } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('supervisor_id', profile.id)
+
+          const ids = [...new Set([profile.id, ...(subs || []).map(item => item.id)])]
+
           const { data } = await supabase
             .from('solicitacoes')
             .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-            .in('status', [STATUS.APPROVED, STATUS.REJECTED])
             .in('solicitante_id', ids)
+            .in('status', STATUS_CONCLUIDAS)
             .order('created_at', { ascending: false })
+
           setItens(data || [])
           return
         }
@@ -213,11 +241,14 @@ export default function Solicitacoes() {
             .from('solicitacao_diretores')
             .select('status, solicitacao:solicitacoes(*, profiles!solicitacoes_solicitante_id_fkey(nome))')
             .eq('diretor_id', profile.id)
-            .neq('status', 'pendente')
 
           const flat = (rows || [])
-            .filter(item => item.solicitacao)
-            .map(item => ({ ...item.solicitacao, profiles: item.solicitacao.profiles, _minha_decisao: item.status }))
+            .filter(row => row.solicitacao && STATUS_CONCLUIDAS.includes(row.solicitacao.status))
+            .map(row => ({
+              ...row.solicitacao,
+              profiles: row.solicitacao.profiles,
+              _minha_decisao: row.status,
+            }))
 
           setItens(flat)
           return
@@ -227,8 +258,9 @@ export default function Solicitacoes() {
           .from('solicitacoes')
           .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
           .eq('solicitante_id', profile.id)
-          .in('status', [STATUS.APPROVED, STATUS.REJECTED])
+          .in('status', STATUS_CONCLUIDAS)
           .order('created_at', { ascending: false })
+
         setItens(data || [])
       }
     } finally {
@@ -250,11 +282,12 @@ export default function Solicitacoes() {
       item.titulo?.toLowerCase().includes(q) ||
       (item.descricao || '').toLowerCase().includes(q) ||
       (item.profiles?.nome || '').toLowerCase().includes(q)
+
     const matchesDepto = !deptoFilter || item.setor_origem === deptoFilter
     const matchesStatus =
       aba === 'pendentes' ||
       !statusFilter ||
-      (statusFilter === 'andamento' && [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED, STATUS.PARTIAL, STATUS.AGUARDA_TESOURARIA].includes(item.status)) ||
+      (statusFilter === 'andamento' && STATUS_PENDENTES.includes(item.status)) ||
       item.status === statusFilter
 
     const createdAt = item.created_at ? new Date(item.created_at) : null
@@ -287,11 +320,11 @@ export default function Solicitacoes() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }} className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 22, fontWeight: 700, color: 'var(--green-brand)' }}>
-          Solicitações
+          Solicitacoes
         </h1>
         {!isDirector && (
           <button className="btn btn-primary" onClick={() => navigate('/nova-solicitacao')}>
-            <FilePlus size={15} /> Nova solicitação
+            <FilePlus size={15} /> Nova solicitacao
           </button>
         )}
       </div>
@@ -392,17 +425,17 @@ export default function Solicitacoes() {
               </select>
 
               <select className="input" value={periodFilter} onChange={e => setPeriodFilter(e.target.value)} style={{ cursor: 'pointer' }}>
-                <option value="">Todo período</option>
+                <option value="">Todo periodo</option>
                 <option value="hoje">Hoje</option>
-                <option value="7dias">Últimos 7 dias</option>
-                <option value="30dias">Últimos 30 dias</option>
+                <option value="7dias">Ultimos 7 dias</option>
+                <option value="30dias">Ultimos 30 dias</option>
               </select>
 
               {aba !== 'pendentes' && (
                 <select className="input" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ cursor: 'pointer' }}>
                   <option value="">Todos os status</option>
-                  {aba !== 'historico' && <option value={STATUS.PENDING}>Pendente</option>}
-                  {aba !== 'historico' && <option value="andamento">Em andamento</option>}
+                  {aba === 'minhas' && <option value={STATUS.PENDING}>Pendente</option>}
+                  {aba === 'minhas' && <option value="andamento">Em andamento</option>}
                   <option value={STATUS.APPROVED}>Aprovado</option>
                   <option value={STATUS.REJECTED}>Rejeitado</option>
                 </select>
@@ -421,14 +454,14 @@ export default function Solicitacoes() {
           <FileText size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
             {aba === 'minhas'
-              ? 'Nenhuma solicitação criada ainda'
+              ? 'Nenhuma solicitacao criada ainda'
               : aba === 'pendentes'
-                ? 'Nenhuma pendência no momento'
-                : 'Nenhum histórico ainda'}
+                ? 'Nenhuma pendencia no momento'
+                : 'Nenhuma solicitacao concluida ainda'}
           </div>
           {aba === 'minhas' && !isDirector && (
             <div style={{ fontSize: 13 }}>
-              Clique em <strong>Nova solicitação</strong> para começar.
+              Clique em <strong>Nova solicitacao</strong> para comecar.
             </div>
           )}
         </div>
@@ -436,7 +469,6 @@ export default function Solicitacoes() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(item => {
             const status = getStatusMeta(item.status)
-            const urgency = URGENCY_META[item.urgencia]
 
             return (
               <div
@@ -456,7 +488,6 @@ export default function Solicitacoes() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: urgency?.color || 'var(--text-3)' }} />
                       {item.numero && (
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'white', background: 'var(--accent)', borderRadius: 4, padding: '1px 7px', flexShrink: 0 }}>
                           #{item.numero}

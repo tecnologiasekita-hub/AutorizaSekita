@@ -4,11 +4,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import {
   ArrowLeft, CheckCircle, XCircle, User, MessageSquare,
-  DollarSign, Tag, AlertTriangle, Paperclip, Download, FileText, Image, File,
+  DollarSign, Tag, Paperclip, Download, FileText, Image, File,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { STATUS, URGENCY_META, getStatusMeta, isPendingForSupervisor, isPendingForDirector, isPendingForTesouraria, formatBytes } from '../lib/workflow'
+import { STATUS, getStatusMeta, isPendingForSupervisor, isPendingForDirector, isPendingForTesouraria, formatBytes } from '../lib/workflow'
 
 function fileIcon(mime) {
   if (!mime) return File
@@ -22,18 +22,18 @@ export default function DetalhesSolicitacao() {
   const { profile, isSupervisor, isDirector } = useAuth()
   const navigate = useNavigate()
 
-  const [sol,            setSol]            = useState(null)
-  const [historico,      setHistorico]      = useState([])
-  const [diretores,      setDiretores]      = useState([])
-  const [allDiretores,   setAllDiretores]   = useState([])
-  const [anexos,         setAnexos]         = useState([])
-  const [loading,        setLoading]        = useState(true)
-  const [saving,         setSaving]         = useState(false)
-  const [comentario,     setComentario]     = useState('')
-  const [motivo,         setMotivo]         = useState('')
+  const [sol, setSol] = useState(null)
+  const [historico, setHistorico] = useState([])
+  const [diretores, setDiretores] = useState([])
+  const [allDiretores, setAllDiretores] = useState([])
+  const [anexos, setAnexos] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [comentario, setComentario] = useState('')
+  const [motivo, setMotivo] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
-  const [dirSel,         setDirSel]         = useState([])
-  const [dirError,       setDirError]       = useState('')
+  const [dirSel, setDirSel] = useState([])
+  const [dirError, setDirError] = useState('')
 
   const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
 
@@ -85,27 +85,26 @@ export default function DetalhesSolicitacao() {
     await supabase.from('historico').insert({ solicitacao_id: id, usuario_id: profile.id, descricao })
   }
 
-  const canActSupervisor  = isSupervisor && !isTesouraria && isPendingForSupervisor(sol?.status)
-  const myDirRow          = isDirector ? diretores.find(d => d.diretor_id === profile?.id) : null
-  const canActDirector    = isDirector && myDirRow?.status === 'pendente' && isPendingForDirector(sol?.status)
-  const canActTesouraria  = isTesouraria && sol?.requer_tesouraria && isPendingForTesouraria(sol?.status)
-  const canAct            = canActSupervisor || canActDirector || canActTesouraria
-
-  function toggleDir(dirId) {
-    setDirSel(prev => prev.includes(dirId) ? prev.filter(d => d !== dirId) : [...prev, dirId])
-    setDirError('')
-  }
+  const canActSupervisor = isSupervisor && !isTesouraria && isPendingForSupervisor(sol?.status)
+  const myDirRow = isDirector ? diretores.find(d => d.diretor_id === profile?.id) : null
+  const canActDirector = isDirector && myDirRow?.status === 'pendente' && isPendingForDirector(sol?.status)
+  const canActTesouraria = isTesouraria && sol?.requer_tesouraria && isPendingForTesouraria(sol?.status)
+  const canAct = canActSupervisor || canActDirector || canActTesouraria
 
   async function handleAprovar() {
     setSaving(true)
     try {
       if (canActSupervisor) {
-        if (dirSel.length === 0) { setDirError('Nenhum diretor vinculado ao seu perfil.'); setSaving(false); return }
+        if (dirSel.length === 0) {
+          setDirError('Nenhum diretor vinculado ao seu perfil.')
+          setSaving(false)
+          return
+        }
 
         await supabase.from('solicitacoes').update({
-          status:                 STATUS.SUPERVISOR_APPROVED,
-          supervisor_id:          profile.id,
-          supervisor_comentario:  comentario || null,
+          status: STATUS.SUPERVISOR_APPROVED,
+          supervisor_id: profile.id,
+          supervisor_comentario: comentario || null,
           supervisor_aprovado_em: new Date().toISOString(),
         }).eq('id', id)
 
@@ -114,40 +113,36 @@ export default function DetalhesSolicitacao() {
         )
 
         await addHistorico('Aprovado pelo supervisor ' + profile.nome + (comentario ? ': ' + comentario : ''))
-
       } else if (canActDirector) {
         await supabase.from('solicitacao_diretores').update({
-          status:      'aprovado',
-          comentario:  comentario || null,
+          status: 'aprovado',
+          comentario: comentario || null,
           decidido_em: new Date().toISOString(),
         }).eq('solicitacao_id', id).eq('diretor_id', profile.id)
 
         const { data: dirsAtual } = await supabase
           .from('solicitacao_diretores').select('status').eq('solicitacao_id', id)
 
-        const todos     = dirsAtual || []
+        const todos = dirsAtual || []
         const aprovados = todos.filter(d => d.status === 'aprovado').length
-        const allAprov  = aprovados === todos.length
+        const allAprov = aprovados === todos.length
 
-        // Se todos aprovaram e requer tesouraria → vai para tesouraria
-        // Se todos aprovaram e não requer → aprovado final
         const novoStatus = allAprov
           ? (sol.requer_tesouraria ? 'aguarda_tesouraria' : STATUS.APPROVED)
           : STATUS.PARTIAL
 
         await supabase.from('solicitacoes').update({ status: novoStatus }).eq('id', id)
         await addHistorico('Aprovado pelo diretor ' + profile.nome + (comentario ? ': ' + comentario : ''))
-
       } else if (canActTesouraria) {
         await supabase.from('solicitacoes').update({
-          status:                    STATUS.APPROVED,
-          tesouraria_status:         'autorizado',
+          status: STATUS.APPROVED,
+          tesouraria_status: 'autorizado',
           tesouraria_autorizado_por: profile.id,
-          tesouraria_autorizado_em:  new Date().toISOString(),
-          tesouraria_comentario:     comentario || null,
+          tesouraria_autorizado_em: new Date().toISOString(),
+          tesouraria_comentario: comentario || null,
         }).eq('id', id)
 
-        await addHistorico('Autorizado pela Tesouraria — ' + profile.nome + (comentario ? ': ' + comentario : ''))
+        await addHistorico('Autorizado pela Tesouraria - ' + profile.nome + (comentario ? ': ' + comentario : ''))
       }
 
       await fetchData()
@@ -162,17 +157,17 @@ export default function DetalhesSolicitacao() {
     setSaving(true)
     try {
       await supabase.from('solicitacoes').update({
-        status:             STATUS.REJECTED,
-        rejeitado_por_id:   profile.id,
+        status: STATUS.REJECTED,
+        rejeitado_por_id: profile.id,
         rejeitado_por_role: profile.role,
-        motivo_rejeicao:    motivo.trim(),
-        rejeitado_em:       new Date().toISOString(),
+        motivo_rejeicao: motivo.trim(),
+        rejeitado_em: new Date().toISOString(),
       }).eq('id', id)
 
       if (isDirector && myDirRow) {
         await supabase.from('solicitacao_diretores').update({
-          status:      'rejeitado',
-          comentario:  motivo.trim(),
+          status: 'rejeitado',
+          comentario: motivo.trim(),
           decidido_em: new Date().toISOString(),
         }).eq('solicitacao_id', id).eq('diretor_id', profile.id)
       }
@@ -190,28 +185,31 @@ export default function DetalhesSolicitacao() {
     const { data, error } = await supabase.storage.from('anexos').download(anexo.storage_path)
     if (error) return
     const url = URL.createObjectURL(data)
-    const a   = document.createElement('a')
-    a.href = url; a.download = anexo.nome_arquivo; a.click()
+    const a = document.createElement('a')
+    a.href = url
+    a.download = anexo.nome_arquivo
+    a.click()
     URL.revokeObjectURL(url)
   }
 
-  if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-      <div className="spinner" style={{ width: 32, height: 32 }} />
-    </div>
-  )
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
+        <div className="spinner" style={{ width: 32, height: 32 }} />
+      </div>
+    )
+  }
 
-  if (!sol) return (
-    <div style={{ color: 'var(--text-3)', padding: 40, textAlign: 'center' }}>Solicitação não encontrada.</div>
-  )
+  if (!sol) {
+    return (
+      <div style={{ color: 'var(--text-3)', padding: 40, textAlign: 'center' }}>Solicitacao nao encontrada.</div>
+    )
+  }
 
   const statusMeta = getStatusMeta(sol.status)
-  const urgency    = URGENCY_META[sol.urgencia]
 
   return (
     <div style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }} className="fade-in">
-
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)} style={{ marginTop: 3 }}>
           <ArrowLeft size={15} />
@@ -219,10 +217,9 @@ export default function DetalhesSolicitacao() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
             {sol.numero && (
-              <span style={{
-                fontSize: 13, fontWeight: 700, color: 'white',
-                background: 'var(--accent)', borderRadius: 4, padding: '3px 9px', flexShrink: 0,
-              }}>#{sol.numero}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'white', background: 'var(--accent)', borderRadius: 4, padding: '3px 9px', flexShrink: 0 }}>
+                #{sol.numero}
+              </span>
             )}
             <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 20, fontWeight: 700, color: 'var(--green-brand)', margin: 0 }}>
               {sol.titulo}
@@ -233,15 +230,13 @@ export default function DetalhesSolicitacao() {
             </span>
           </div>
           <p style={{ color: 'var(--text-3)', fontSize: 12 }}>
-            Criado em {format(new Date(sol.created_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+            Criado em {format(new Date(sol.created_at), "dd 'de' MMMM 'de' yyyy 'as' HH:mm", { locale: ptBR })}
           </p>
         </div>
       </div>
 
-      {/* Progress tracker */}
       <ProgressTracker sol={sol} diretores={diretores} />
 
-      {/* Detalhes + Descrição */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <h3 style={s.cardTitle}>Detalhes</h3>
@@ -249,24 +244,24 @@ export default function DetalhesSolicitacao() {
           {sol.setor_origem && <InfoRow icon={Tag} label="Setor de origem" value={sol.setor_origem} />}
           {sol.categoria && <InfoRow icon={Tag} label="Categoria" value={sol.categoria} />}
           {sol.valor != null && (
-            <InfoRow icon={DollarSign} label="Valor"
-              value={'R$ ' + Number(sol.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} />
-          )}
-          {sol.urgencia && (
-            <InfoRow icon={AlertTriangle} label="Urgência"
-              value={urgency?.label || 'Normal'}
-              valueStyle={{ color: urgency?.color || 'var(--text)', fontWeight: 600 }} />
+            <InfoRow icon={DollarSign} label="Valor" value={'R$ ' + Number(sol.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} />
           )}
         </div>
+
         <div className="card">
-          <h3 style={{ ...s.cardTitle, marginBottom: 10 }}>Descrição</h3>
-          <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
-            {sol.descricao}
-          </p>
+          {sol.formulario_tipo === 'renegociacao_venda'
+            ? <RenegociacaoDetails dados={sol.dados_formulario} descricao={sol.descricao} />
+            : (
+              <>
+                <h3 style={{ ...s.cardTitle, marginBottom: 10 }}>Descricao</h3>
+                <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+                  {sol.descricao}
+                </p>
+              </>
+            )}
         </div>
       </div>
 
-      {/* Anexos */}
       {anexos.length > 0 && (
         <div className="card">
           <h3 style={{ ...s.cardTitle, marginBottom: 14 }}>
@@ -277,10 +272,7 @@ export default function DetalhesSolicitacao() {
             {anexos.map(a => {
               const Icon = fileIcon(a.mime_type)
               return (
-                <div key={a.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                  background: 'var(--bg-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
-                }}>
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--bg-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
                   <Icon size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -288,8 +280,7 @@ export default function DetalhesSolicitacao() {
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatBytes(a.tamanho_bytes)}</div>
                   </div>
-                  <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: 'var(--accent)' }}
-                    onClick={() => downloadAnexo(a)} title="Baixar">
+                  <button className="btn btn-ghost btn-sm" style={{ padding: '5px 8px', color: 'var(--accent)' }} onClick={() => downloadAnexo(a)} title="Baixar">
                     <Download size={14} />
                   </button>
                 </div>
@@ -299,53 +290,38 @@ export default function DetalhesSolicitacao() {
         </div>
       )}
 
-      {/* Pareceres */}
       {(sol.supervisor_id || diretores.some(d => d.status !== 'pendente') || sol.status === STATUS.REJECTED || sol.tesouraria_status === 'autorizado') && (
         <div className="card">
           <h3 style={{ ...s.cardTitle, marginBottom: 14 }}>Pareceres</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {sol.supervisor_id && sol.supervisor && (
-              <ParecerBox tipo="Supervisor" nome={sol.supervisor.nome}
-                comentario={sol.supervisor_comentario} data={sol.supervisor_aprovado_em} status="aprovado" />
+              <ParecerBox tipo="Supervisor" nome={sol.supervisor.nome} comentario={sol.supervisor_comentario} data={sol.supervisor_aprovado_em} status="aprovado" />
             )}
             {diretores.filter(d => d.status !== 'pendente').map(d => (
-              <ParecerBox key={d.id} tipo="Diretor" nome={d.diretor?.nome || ''}
-                comentario={d.comentario} data={d.decidido_em} status={d.status} />
+              <ParecerBox key={d.id} tipo="Diretor" nome={d.diretor?.nome || ''} comentario={d.comentario} data={d.decidido_em} status={d.status} />
             ))}
             {sol.tesouraria_status === 'autorizado' && sol.tesouraria_autor && (
-              <ParecerBox tipo="Tesouraria" nome={sol.tesouraria_autor.nome}
-                comentario={sol.tesouraria_comentario} data={sol.tesouraria_autorizado_em} status="aprovado" />
+              <ParecerBox tipo="Tesouraria" nome={sol.tesouraria_autor.nome} comentario={sol.tesouraria_comentario} data={sol.tesouraria_autorizado_em} status="aprovado" />
             )}
             {sol.status === STATUS.REJECTED && sol.motivo_rejeicao && (
-              <ParecerBox tipo="Rejeição" nome={sol.rejeitado_por?.nome || ''}
-                comentario={sol.motivo_rejeicao} data={sol.rejeitado_em} status="rejeitado" />
+              <ParecerBox tipo="Rejeicao" nome={sol.rejeitado_por?.nome || ''} comentario={sol.motivo_rejeicao} data={sol.rejeitado_em} status="rejeitado" />
             )}
           </div>
         </div>
       )}
 
-      {/* Aprovação dos Diretores */}
       {diretores.length > 0 && (
         <div className="card">
-          <h3 style={{ ...s.cardTitle, marginBottom: 14 }}>Aprovação dos Diretores</h3>
+          <h3 style={{ ...s.cardTitle, marginBottom: 14 }}>Aprovacao dos Diretores</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {diretores.map(d => {
-              const isPend  = d.status === 'pendente'
+              const isPend = d.status === 'pendente'
               const isAprov = d.status === 'aprovado'
               return (
-                <div key={d.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 13px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: isAprov ? 'var(--green-bg)' : isPend ? 'var(--bg-2)' : 'var(--red-bg)',
-                  border: '1px solid ' + (isAprov ? 'var(--green-border)' : isPend ? 'var(--border)' : 'var(--red-border)'),
-                }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                    background: isAprov ? 'var(--green)' : isPend ? 'var(--border)' : 'var(--red)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
+                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 13px', borderRadius: 'var(--radius-sm)', background: isAprov ? 'var(--green-bg)' : isPend ? 'var(--bg-2)' : 'var(--red-bg)', border: '1px solid ' + (isAprov ? 'var(--green-border)' : isPend ? 'var(--border)' : 'var(--red-border)') }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isAprov ? 'var(--green)' : isPend ? 'var(--border)' : 'var(--red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>
-                      {isAprov ? '✓' : isPend ? '?' : '✕'}
+                      {isAprov ? 'OK' : isPend ? '?' : 'X'}
                     </span>
                   </div>
                   <div style={{ flex: 1 }}>
@@ -371,29 +347,19 @@ export default function DetalhesSolicitacao() {
         </div>
       )}
 
-      {/* Ação do aprovador */}
       {canAct && sol.status !== STATUS.REJECTED && (
         <div className="card" style={{ borderColor: 'var(--border-light)', background: 'var(--bg-card-2)' }}>
           <h3 style={{ ...s.cardTitle, marginBottom: 14 }}>
-            {canActSupervisor ? 'Ação do supervisor' : canActTesouraria ? 'Autorização da Tesouraria' : 'Ação do diretor'}
+            {canActSupervisor ? 'Acao do supervisor' : canActTesouraria ? 'Autorizacao da Tesouraria' : 'Acao do diretor'}
           </h3>
 
-          {/* Diretor vinculado — só supervisor normal */}
           {canActSupervisor && (
             <div className="input-group" style={{ marginBottom: 18 }}>
-              <label>Diretor responsável</label>
+              <label>Diretor responsavel</label>
               {dirSel.length > 0 ? (
                 allDiretores.filter(d => dirSel.includes(d.id)).map(d => (
-                  <div key={d.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--accent)', background: 'var(--accent-dim)',
-                  }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                      background: 'var(--accent)', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white',
-                    }}>
+                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)', background: 'var(--accent-dim)' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white' }}>
                       {d.nome.charAt(0).toUpperCase()}
                     </div>
                     <div>
@@ -404,10 +370,10 @@ export default function DetalhesSolicitacao() {
                 ))
               ) : (
                 <div style={{ fontSize: 13, color: 'var(--red)', padding: '8px 0' }}>
-                  ⚠ Nenhum diretor vinculado ao seu perfil.
+                  Nenhum diretor vinculado ao seu perfil.
                 </div>
               )}
-              {dirError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>⚠ {dirError}</div>}
+              {dirError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{dirError}</div>}
             </div>
           )}
 
@@ -416,11 +382,15 @@ export default function DetalhesSolicitacao() {
               <div className="input-group" style={{ marginBottom: 14 }}>
                 <label>
                   <MessageSquare size={12} style={{ display: 'inline', marginRight: 5 }} />
-                  {canActTesouraria ? 'Comentário da Tesouraria (opcional)' : 'Comentário opcional'}
+                  {canActTesouraria ? 'Comentario da Tesouraria (opcional)' : 'Comentario opcional'}
                 </label>
-                <textarea className="input" rows={3}
-                  placeholder={canActTesouraria ? 'Observação da Tesouraria...' : 'Observação sobre sua decisão...'}
-                  value={comentario} onChange={e => setComentario(e.target.value)} />
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder={canActTesouraria ? 'Observacao da Tesouraria...' : 'Observacao sobre sua decisao...'}
+                  value={comentario}
+                  onChange={e => setComentario(e.target.value)}
+                />
               </div>
               <div style={{ display: 'flex', gap: 10 }} className="action-buttons">
                 <button className="btn btn-success" onClick={handleAprovar} disabled={saving}>
@@ -437,16 +407,15 @@ export default function DetalhesSolicitacao() {
           ) : (
             <>
               <div className="input-group" style={{ marginBottom: 14 }}>
-                <label>Motivo da rejeição *</label>
-                <textarea className="input" rows={3} placeholder="Explique o motivo..."
-                  value={motivo} onChange={e => setMotivo(e.target.value)} autoFocus />
+                <label>Motivo da rejeicao *</label>
+                <textarea className="input" rows={3} placeholder="Explique o motivo..." value={motivo} onChange={e => setMotivo(e.target.value)} autoFocus />
               </div>
               <div style={{ display: 'flex', gap: 10 }} className="action-buttons">
                 <button className="btn btn-danger" onClick={handleRejeitar} disabled={saving || !motivo.trim()}>
                   {saving
                     ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'var(--red)' }} />
                     : <XCircle size={15} />}
-                  Confirmar rejeição
+                  Confirmar rejeicao
                 </button>
                 <button className="btn btn-ghost" onClick={() => { setShowRejectForm(false); setMotivo('') }}>
                   Cancelar
@@ -457,25 +426,18 @@ export default function DetalhesSolicitacao() {
         </div>
       )}
 
-      {/* Histórico */}
       {historico.length > 0 && (
         <div className="card">
-          <h3 style={{ ...s.cardTitle, marginBottom: 16 }}>Histórico</h3>
+          <h3 style={{ ...s.cardTitle, marginBottom: 16 }}>Historico</h3>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {historico.map((item, idx) => {
               const isAprov = item.descricao?.startsWith('Aprovado') || item.descricao?.startsWith('Autorizado')
-              const isRej   = item.descricao?.startsWith('Rejeitado')
+              const isRej = item.descricao?.startsWith('Rejeitado')
               return (
                 <div key={item.id} style={{ display: 'flex', gap: 14, paddingBottom: idx < historico.length - 1 ? 18 : 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                    <div style={{
-                      width: 28, height: 28, borderRadius: '50%',
-                      background: isAprov ? 'var(--green-bg)' : isRej ? 'var(--red-bg)' : 'var(--accent-glow)',
-                      color:      isAprov ? 'var(--green)'    : isRej ? 'var(--red)'    : 'var(--accent)',
-                      border: '1px solid ' + (isAprov ? 'var(--green-border)' : isRej ? 'var(--red-border)' : 'rgba(26,92,56,0.25)'),
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700,
-                    }}>
-                      {isAprov ? '✓' : isRej ? '✕' : '·'}
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: isAprov ? 'var(--green-bg)' : isRej ? 'var(--red-bg)' : 'var(--accent-glow)', color: isAprov ? 'var(--green)' : isRej ? 'var(--red)' : 'var(--accent)', border: '1px solid ' + (isAprov ? 'var(--green-border)' : isRej ? 'var(--red-border)' : 'rgba(26,92,56,0.25)'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                      {isAprov ? 'OK' : isRej ? 'X' : '.'}
                     </div>
                     {idx < historico.length - 1 && (
                       <div style={{ width: 1, flex: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -484,7 +446,7 @@ export default function DetalhesSolicitacao() {
                   <div style={{ paddingTop: 4 }}>
                     <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{item.descricao}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-                      {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm")}
+                      {format(new Date(item.created_at), "dd/MM/yyyy 'as' HH:mm")}
                       {item.profiles?.nome && ' · ' + item.profiles.nome}
                     </div>
                   </div>
@@ -503,24 +465,24 @@ function ProgressTracker({ sol, diretores }) {
   const supDone = skipSupervisor || [STATUS.SUPERVISOR_APPROVED, STATUS.PARTIAL, STATUS.APPROVED, 'aguarda_tesouraria'].includes(sol.status)
   const totalDirs = diretores.length
   const aprovDirs = diretores.filter(d => d.status === 'aprovado').length
-  const dirsDone  = sol.status === STATUS.APPROVED || sol.status === 'aguarda_tesouraria'
+  const dirsDone = sol.status === STATUS.APPROVED || sol.status === 'aguarda_tesouraria'
 
   const steps = [
-    { label: 'Criado',     done: true,     date: sol.created_at },
-    { label: 'Supervisor', done: supDone,  skip: skipSupervisor, date: sol.supervisor_aprovado_em },
+    { label: 'Criado', done: true, date: sol.created_at },
+    { label: 'Supervisor', done: supDone, skip: skipSupervisor, date: sol.supervisor_aprovado_em },
     {
       label: totalDirs > 1 ? 'Diretores (' + aprovDirs + '/' + totalDirs + ')' : 'Diretor',
-      done:  dirsDone,
-      skip:  sol.solicitante?.role === 'diretor',
+      done: dirsDone,
+      skip: sol.solicitante?.role === 'diretor',
     },
     ...(sol.requer_tesouraria ? [{
       label: 'Tesouraria',
-      done:  sol.tesouraria_status === 'autorizado',
-      date:  sol.tesouraria_autorizado_em,
+      done: sol.tesouraria_status === 'autorizado',
+      date: sol.tesouraria_autorizado_em,
     }] : []),
     {
-      label:    sol.status === STATUS.REJECTED ? 'Rejeitado' : 'Concluído',
-      done:     sol.status === STATUS.APPROVED,
+      label: sol.status === STATUS.REJECTED ? 'Rejeitado' : 'Concluido',
+      done: sol.status === STATUS.APPROVED,
       rejected: sol.status === STATUS.REJECTED,
     },
   ]
@@ -530,19 +492,10 @@ function ProgressTracker({ sol, diretores }) {
       {steps.map((step, i) => (
         <div key={step.label} style={{ display: 'flex', alignItems: 'flex-start', flex: i < steps.length - 1 ? 1 : undefined, minWidth: 70 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: '50%',
-              background: step.done ? 'var(--green-bg)' : step.rejected ? 'var(--red-bg)' : 'var(--bg-2)',
-              color:      step.done ? 'var(--green)'    : step.rejected ? 'var(--red)'    : 'var(--text-3)',
-              border: '2px solid ' + (step.done ? 'var(--green)' : step.rejected ? 'var(--red)' : 'var(--border)'),
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
-            }}>
-              {step.done ? '✓' : step.rejected ? '✕' : step.skip ? '–' : '○'}
+            <div style={{ width: 34, height: 34, borderRadius: '50%', background: step.done ? 'var(--green-bg)' : step.rejected ? 'var(--red-bg)' : 'var(--bg-2)', color: step.done ? 'var(--green)' : step.rejected ? 'var(--red)' : 'var(--text-3)', border: '2px solid ' + (step.done ? 'var(--green)' : step.rejected ? 'var(--red)' : 'var(--border)'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
+              {step.done ? 'OK' : step.rejected ? 'X' : step.skip ? '-' : 'O'}
             </div>
-            <span style={{
-              fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap',
-              color: step.done ? 'var(--green)' : step.rejected ? 'var(--red)' : 'var(--text-3)',
-            }}>
+            <span style={{ fontSize: 10, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap', color: step.done ? 'var(--green)' : step.rejected ? 'var(--red)' : 'var(--text-3)' }}>
               {step.label}
             </span>
             {step.date && (
@@ -552,11 +505,7 @@ function ProgressTracker({ sol, diretores }) {
             )}
           </div>
           {i < steps.length - 1 && (
-            <div style={{
-              flex: 1, height: 2,
-              background: steps[i + 1]?.done ? 'var(--green)' : 'var(--border)',
-              margin: '16px 6px 0',
-            }} />
+            <div style={{ flex: 1, height: 2, background: steps[i + 1]?.done ? 'var(--green)' : 'var(--border)', margin: '16px 6px 0' }} />
           )}
         </div>
       ))}
@@ -581,18 +530,10 @@ function InfoRow({ icon: Icon, label, value, valueStyle }) {
 function ParecerBox({ tipo, nome, comentario, data, status }) {
   const isAprov = status === 'aprovado'
   return (
-    <div style={{
-      padding: '12px 14px', borderRadius: 'var(--radius-sm)',
-      background: isAprov ? 'var(--green-bg)' : 'var(--red-bg)',
-      border: '1px solid ' + (isAprov ? 'var(--green-border)' : 'var(--red-border)'),
-    }}>
+    <div style={{ padding: '12px 14px', borderRadius: 'var(--radius-sm)', background: isAprov ? 'var(--green-bg)' : 'var(--red-bg)', border: '1px solid ' + (isAprov ? 'var(--green-border)' : 'var(--red-border)') }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: comentario ? 6 : 0 }}>
-        <span style={{
-          fontSize: 12, fontWeight: 700,
-          color: isAprov ? 'var(--green)' : 'var(--red)',
-          textTransform: 'uppercase', letterSpacing: '0.04em',
-        }}>
-          {isAprov ? '✓' : '✕'} {tipo}{nome ? ' · ' + nome : ''}
+        <span style={{ fontSize: 12, fontWeight: 700, color: isAprov ? 'var(--green)' : 'var(--red)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {isAprov ? 'OK' : 'X'} {tipo}{nome ? ' · ' + nome : ''}
         </span>
         {data && (
           <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
@@ -607,9 +548,83 @@ function ParecerBox({ tipo, nome, comentario, data, status }) {
   )
 }
 
+function RenegociacaoDetails({ dados, descricao }) {
+  const parsedDados = normalizeFormData(dados)
+
+  if (!parsedDados || Object.keys(parsedDados).length === 0) {
+    return (
+      <>
+        <h3 style={{ ...s.cardTitle, marginBottom: 10 }}>Descricao</h3>
+        <p style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+          {descricao}
+        </p>
+      </>
+    )
+  }
+
+  const rows = [
+    ['Empresa de origem', parsedDados.empresa_origem],
+    ['Cliente', parsedDados.cliente],
+    ['Data de emissao', formatDateValue(parsedDados.data_emissao)],
+    ['Data de vencimento', formatDateValue(parsedDados.data_vencimento)],
+    ['Numero do pedido/venda', parsedDados.numero_pedido_venda],
+    ['Numero da nota fiscal', parsedDados.numero_nota_fiscal],
+    ['Valor', parsedDados.valor != null ? formatMoneyValue(parsedDados.valor) : null],
+    ['Motivo', parsedDados.motivo_label || parsedDados.motivo],
+    ['Justificativa', parsedDados.justificativa],
+    ['Nova data', formatDateValue(parsedDados.nova_data)],
+    ['Novo valor', parsedDados.novo_valor != null ? formatMoneyValue(parsedDados.novo_valor) : null],
+    ['Observacao', parsedDados.observacao],
+  ].filter(([, value]) => value !== null && value !== undefined && value !== '')
+
+  return (
+    <>
+      <h3 style={{ ...s.cardTitle, marginBottom: 10 }}>Dados do formulario</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {rows.map(([label, value], index) => (
+          <div key={label} style={{ paddingBottom: index < rows.length - 1 ? 10 : 0, borderBottom: index < rows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 3 }}>
+              {label}
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text-2)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function normalizeFormData(dados) {
+  if (!dados) return null
+  if (typeof dados === 'string') {
+    try {
+      return JSON.parse(dados)
+    } catch {
+      return null
+    }
+  }
+  return dados
+}
+
+function formatMoneyValue(value) {
+  return 'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+}
+
+function formatDateValue(value) {
+  if (!value) return ''
+  const date = new Date(value + 'T00:00:00')
+  return format(date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+}
+
 const s = {
   cardTitle: {
-    fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 13,
-    color: 'var(--text-2)', letterSpacing: '0.04em', textTransform: 'uppercase',
+    fontFamily: 'var(--font-body)',
+    fontWeight: 700,
+    fontSize: 13,
+    color: 'var(--text-2)',
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
   },
 }
