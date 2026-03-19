@@ -76,7 +76,6 @@ export default function Perfil() {
         <div className="input-group">
           <label><Mail size={11} style={{ display: 'inline', marginRight: 5 }} />E-mail</label>
           <input className="input" value={profile?.email || ''} disabled />
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>O e-mail não pode ser alterado aqui</span>
         </div>
 
         <div className="input-group">
