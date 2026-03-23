@@ -1,128 +1,112 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { CheckSquare, Search, Clock } from 'lucide-react'
 import { format } from 'date-fns'
-import { getStatusMeta, isPendingForDirector, isPendingForSupervisor } from '../lib/workflow'
+import { APPROVER_STATUS, getRequestSetor, getRequestValue, getStatusMeta, isFinishedStatus } from '../lib/workflow'
+
+const SETORES = [
+  'TI',
+  'Controladoria',
+  'Tesouraria',
+  'Ambiental',
+  'Contas a Pagar',
+  'Compras',
+  'Assinatura Digital',
+  'Jurídico',
+  'Financeiro',
+  'Comercial',
+]
 
 export default function Aprovacoes() {
   const { profile, isSupervisor, isDirector } = useAuth()
   const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [solicitacoes, setSolicitacoes] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('pendentes')
   const [deptoFilter, setDeptoFilter] = useState('')
+  const [decisionFilter, setDecisionFilter] = useState('')
 
   useEffect(() => {
-    if (profile) fetchSolicitacoes()
-  }, [profile, filter, deptoFilter])
+    const params = new URLSearchParams(location.search)
+    const nextFilter = params.get('filter') === 'concluidas' ? 'concluidas' : 'pendentes'
+    const nextDecision = params.get('decision') || ''
 
-  async function fetchSolicitacoes() {
+    setFilter(nextFilter)
+    setDecisionFilter(nextDecision)
+
+    if (profile) {
+      fetchSolicitacoes(nextFilter, nextDecision)
+    }
+  }, [location.search, profile])
+
+  useEffect(() => {
+    if (profile) fetchSolicitacoes(filter, decisionFilter)
+  }, [profile, filter, decisionFilter])
+
+  async function fetchSolicitacoes(filterOverride = filter, decisionOverride = decisionFilter) {
     if (!profile) return
     setLoading(true)
 
     try {
-      if (isTesouraria) {
-        let query = supabase
-          .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
-          .eq('requer_tesouraria', true)
-          .order('created_at', { ascending: false })
-
-        query = filter === 'pendentes'
-          ? query.eq('status', 'aguarda_tesouraria')
-          : query.neq('status', 'aguarda_tesouraria')
-
-        if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
-        const { data } = await query
-        setSolicitacoes(data || [])
-        return
-      }
-
-      if (isSupervisor) {
-        const { data: subordinados } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('supervisor_id', profile.id)
-
-        const ids = (subordinados || []).map(item => item.id)
-        if (!ids.length) {
-          setSolicitacoes([])
-          return
-        }
-
-        let query = supabase
-          .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)')
-          .in('solicitante_id', ids)
-          .order('created_at', { ascending: false })
-
-        query = filter === 'pendentes'
-          ? query.eq('status', 'pendente')
-          : query.neq('status', 'pendente')
-
-        if (deptoFilter) query = query.eq('setor_origem', deptoFilter)
-        const { data } = await query
-        setSolicitacoes(data || [])
-        return
-      }
-
-      if (isDirector) {
-        let query = supabase
-          .from('solicitacao_diretores')
-          .select(`
+      let query = supabase
+        .from('solicitacao_aprovadores')
+        .select(`
+          *,
+          solicitacao:solicitacoes(
             *,
-            solicitacao:solicitacoes(
-              *,
-              profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)
-            )
-          `)
-          .eq('diretor_id', profile.id)
-          .order('created_at', { ascending: false })
+            profiles!solicitacoes_solicitante_id_fkey(nome, email, departamento)
+          )
+        `)
+        .eq('usuario_id', profile.id)
+        .order('created_at', { ascending: false })
 
-        query = filter === 'pendentes'
-          ? query.eq('status', 'pendente')
-          : query.neq('status', 'pendente')
+      query = filterOverride === 'pendentes'
+        ? query.eq('status', APPROVER_STATUS.PENDING)
+        : query.neq('status', APPROVER_STATUS.PENDING)
 
-        if (deptoFilter) query = query.eq('solicitacao.setor_origem', deptoFilter)
-        const { data } = await query
-
-        const flat = (data || [])
-          .filter(row => row.solicitacao)
-          .filter(row => {
-            if (filter === 'pendentes') return isPendingForDirector(row.solicitacao.status)
-            return true
-          })
-          .map(row => ({
-            ...row.solicitacao,
-            profiles: row.solicitacao.profiles,
-            _minha_decisao: row.status,
-          }))
-
-        setSolicitacoes(flat)
+      if (filterOverride === 'concluidas' && decisionOverride) {
+        query = query.eq('status', decisionOverride)
       }
+
+      const { data } = await query
+
+      const flat = (data || [])
+        .filter(row => row.solicitacao)
+        .map(row => ({
+          ...row.solicitacao,
+          profiles: row.solicitacao.profiles,
+          _minha_decisao: row.status,
+          _papel_aprovador: row.papel,
+          _ordem_aprovador: row.ordem,
+          _comentario_aprovador: row.comentario,
+          _decidido_em: row.decidido_em,
+        }))
+
+      setSolicitacoes(flat)
     } finally {
       setLoading(false)
     }
   }
 
   const filtered = solicitacoes
-    .filter(item => !deptoFilter || item.setor_origem === deptoFilter)
-    .filter(item =>
-      item.titulo.toLowerCase().includes(search.toLowerCase()) ||
-      (item.profiles?.nome || '').toLowerCase().includes(search.toLowerCase())
-    )
+    .filter(item => !deptoFilter || getRequestSetor(item) === deptoFilter)
+    .filter(item => !decisionFilter || item._minha_decisao === decisionFilter)
+    .filter(item => {
+      const q = search.toLowerCase()
+      return (
+        item.titulo?.toLowerCase().includes(q) ||
+        item.formulario_tipo?.toLowerCase().includes(q) ||
+        (item.profiles?.nome || '').toLowerCase().includes(q)
+      )
+    })
 
-  const pendingCount = solicitacoes.filter(item => {
-    if (isTesouraria) return item.status === 'aguarda_tesouraria'
-    if (isSupervisor) return isPendingForSupervisor(item.status)
-    if (isDirector) return isPendingForDirector(item.status) && item._minha_decisao === 'pendente'
-    return false
-  }).length
+  const pendingCount = solicitacoes.filter(item => item._minha_decisao === APPROVER_STATUS.PENDING && !isFinishedStatus(item.status)).length
 
   const roleName = isTesouraria ? 'Tesouraria' : isSupervisor ? 'Supervisor' : 'Diretor'
   const roleColor = isSupervisor ? 'var(--blue)' : 'var(--accent-2)'
@@ -135,16 +119,18 @@ export default function Aprovacoes() {
           Aprovações
         </h1>
         <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>
-          Fila de aprovação como {roleName}
+          {isTesouraria ? 'Solicitações aguardando autorização da Tesouraria' : `Fila de aprovação como ${roleName}`}
         </p>
       </div>
 
       <div className="card" style={{ background: roleBg, borderColor: `${roleColor}30` }}>
         <div style={{ fontSize: 13, color: roleColor }}>
           <strong>Como {roleName}:</strong>{' '}
-          {isSupervisor
-            ? 'Você faz a primeira análise das solicitações enviadas pelos solicitantes.'
-            : 'Você decide as solicitações que foram direcionadas para você após aprovação do supervisor.'}
+          {isTesouraria
+            ? 'Você autoriza as solicitações que exigem validação financeira.'
+            : isSupervisor
+              ? 'Você faz a primeira análise das solicitações que chegam à sua fila.'
+              : 'Você decide as solicitações que foram encaminhadas para sua aprovação.'}
         </div>
       </div>
 
@@ -164,10 +150,10 @@ export default function Aprovacoes() {
           </button>
 
           <button
-            className={`btn btn-sm ${filter === 'historico' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setFilter('historico')}
+            className={`btn btn-sm ${filter === 'concluidas' ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setFilter('concluidas')}
           >
-            <CheckSquare size={13} /> Histórico
+            <CheckSquare size={13} /> Concluídas
           </button>
         </div>
 
@@ -190,15 +176,9 @@ export default function Aprovacoes() {
             style={{ cursor: 'pointer', width: 200 }}
           >
             <option value="">Todos os setores</option>
-            <option value="TI">TI</option>
-            <option value="Controladoria">Controladoria</option>
-            <option value="Tesouraria">Tesouraria</option>
-            <option value="Ambiental">Ambiental</option>
-            <option value="Contas a Pagar">Contas a Pagar</option>
-            <option value="Compras">Compras</option>
-            <option value="Assinatura Digital">Assinatura Digital</option>
-            <option value="Juridico">Juridico</option>
-            <option value="Financeiro">Financeiro</option>
+            {SETORES.map(setor => (
+              <option key={setor} value={setor}>{setor}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -211,17 +191,19 @@ export default function Aprovacoes() {
         <div className="card" style={{ textAlign: 'center', padding: 52, color: 'var(--text-3)' }}>
           <CheckSquare size={32} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.25 }} />
           <div style={{ fontWeight: 600, marginBottom: 6 }}>
-            {filter === 'pendentes' ? 'Nenhuma pendência no momento' : 'Nenhuma ação registrada ainda'}
+            {filter === 'pendentes' ? 'Nenhuma pendência no momento' : 'Nenhuma aprovação concluída ainda'}
           </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map(item => {
             const status = getStatusMeta(item.status)
+            const valor = getRequestValue(item)
+            const setor = getRequestSetor(item)
 
             return (
               <div
-                key={item.id}
+                key={`${item.id}-${item._papel_aprovador}-${item._ordem_aprovador}`}
                 className="card"
                 onClick={() => navigate(`/solicitacao/${item.id}`)}
                 style={{ cursor: 'pointer', transition: 'all 0.15s' }}
@@ -259,10 +241,10 @@ export default function Aprovacoes() {
 
                     <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <span>Por: <strong style={{ color: 'var(--text-2)' }}>{item.profiles?.nome}</strong></span>
-                      {item.profiles?.departamento && <span>{item.profiles.departamento}</span>}
-                      <span>{format(new Date(item.created_at), "dd/MM 'as' HH:mm")}</span>
-                      {item.valor != null && (
-                        <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      {setor && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{setor}</span>}
+                      <span>{format(new Date(item.created_at), "dd/MM 'às' HH:mm")}</span>
+                      {valor != null && (
+                        <span>R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                       )}
                     </div>
                   </div>

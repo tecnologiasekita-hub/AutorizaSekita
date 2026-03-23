@@ -1,11 +1,25 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { FLOW_EVENTS, notificarFluxoFormulario } from '../lib/notificar'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Send, Paperclip, X, FileText, Image, File, AlertCircle } from 'lucide-react'
-import { STATUS, formatBytes } from '../lib/workflow'
+import { AlertCircle, ArrowLeft, File, FileText, Image, Paperclip, Send, X } from 'lucide-react'
+import { APPROVER_ROLE, APPROVER_STATUS, STATUS, formatBytes } from '../lib/workflow'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
+
+const SETORES = [
+  'TI',
+  'Controladoria',
+  'Tesouraria',
+  'Ambiental',
+  'Contas a Pagar',
+  'Compras',
+  'Assinatura Digital',
+  'Jurídico',
+  'Financeiro',
+  'Comercial',
+]
 
 function fileIcon(mime) {
   if (!mime) return File
@@ -24,15 +38,14 @@ export default function NovaSolicitacao() {
   const [error, setError] = useState('')
   const [arquivos, setArquivos] = useState([])
   const [supervisorInfo, setSupervisorInfo] = useState(null)
-  const [diretores, setDiretores] = useState([])
   const [dirSel, setDirSel] = useState([])
 
   const [form, setForm] = useState({
     titulo: '',
     descricao: '',
+    setor_origem: '',
     valor: '',
     categoria: '',
-    setor_origem: '',
   })
 
   const isSupervisor = profile?.role === 'supervisor'
@@ -42,16 +55,6 @@ export default function NovaSolicitacao() {
     async function load() {
       setLoadingSetup(true)
       try {
-        if (isSupervisor) {
-          const { data: dirs } = await supabase
-            .from('profiles')
-            .select('id, nome, departamento')
-            .eq('role', 'diretor')
-            .order('nome')
-
-          setDiretores(dirs || [])
-        }
-
         if (isSupervisor) {
           const { data: myProf } = await supabase
             .from('profiles')
@@ -72,13 +75,11 @@ export default function NovaSolicitacao() {
           if (myProfile?.supervisor_id) {
             const { data: sup } = await supabase
               .from('profiles')
-              .select('id, nome, departamento')
+              .select('id, nome')
               .eq('id', myProfile.supervisor_id)
               .single()
 
             setSupervisorInfo(sup || null)
-          } else {
-            setSupervisorInfo(null)
           }
         }
       } finally {
@@ -107,16 +108,15 @@ export default function NovaSolicitacao() {
   }
 
   async function handleSubmit() {
-    if (!form.titulo.trim()) return setError('Titulo e obrigatorio.')
-    if (!form.descricao.trim()) return setError('Descricao e obrigatoria.')
-    if (form.valor !== '' && parseFloat(form.valor) < 0) return setError('Valor nao pode ser negativo.')
+    if (!form.titulo.trim()) return setError('Título é obrigatório.')
+    if (!form.descricao.trim()) return setError('Descrição é obrigatória.')
 
     if (!isSupervisor && !isDirector && !supervisorInfo) {
-      return setError('Supervisor nao vinculado. Voce nao possui supervisor vinculado.')
+      return setError('Supervisor não vinculado. Você não possui supervisor vinculado.')
     }
 
     if (isSupervisor && dirSel.length === 0) {
-      return setError('Selecione ao menos um diretor para encaminhar a solicitacao.')
+      return setError('Nenhum diretor vinculado ao seu perfil.')
     }
 
     setLoading(true)
@@ -124,90 +124,109 @@ export default function NovaSolicitacao() {
       const payload = {
         titulo: form.titulo.trim(),
         descricao: form.descricao.trim(),
-        valor: form.valor !== '' ? parseFloat(form.valor) : null,
-        categoria: form.categoria.trim() || null,
-        setor_origem: form.setor_origem || null,
+        formulario_tipo: 'solicitacao_geral',
         solicitante_id: profile.id,
-        status: isDirector
-          ? STATUS.APPROVED
-          : isSupervisor
-            ? STATUS.SUPERVISOR_APPROVED
-            : STATUS.PENDING,
+        status: STATUS.IN_APPROVAL,
+        dados_formulario: {
+          titulo: form.titulo.trim(),
+          descricao: form.descricao.trim(),
+          categoria: form.categoria.trim() || null,
+          setor_origem: form.setor_origem || null,
+          valor: form.valor !== '' ? Number(form.valor) : null,
+        },
       }
 
-      if (isSupervisor) {
-        payload.supervisor_id = profile.id
-        payload.supervisor_aprovado_em = new Date().toISOString()
-      }
-
-      const { data, error: insertError } = await supabase
+      const { data: sol, error: solErr } = await supabase
         .from('solicitacoes')
         .insert(payload)
         .select()
         .single()
 
-      if (insertError) {
-        console.error('Erro insert solicitacao:', insertError)
-        setError(`Erro: ${insertError.message}`)
-        return
-      }
-
-      if (isSupervisor && dirSel.length > 0) {
-        await supabase.from('solicitacao_diretores').insert(
-          dirSel.map(did => ({
-            solicitacao_id: data.id,
-            diretor_id: did,
-            status: 'pendente',
-          }))
-        )
-
-        await supabase.from('notificacoes').insert(
-          dirSel.map(did => ({
-            usuario_id: did,
-            solicitacao_id: data.id,
-            mensagem: `Solicitacao "${data.titulo}" de ${profile.nome} aguarda sua aprovacao.`,
-          }))
-        )
-      }
-
-      if (!isSupervisor && !isDirector) {
-        await supabase.from('notificacoes').insert({
-          usuario_id: supervisorInfo.id,
-          solicitacao_id: data.id,
-          mensagem: `Nova solicitacao de ${profile.nome} aguarda sua aprovacao: "${data.titulo}"`,
-        })
-      }
+      if (solErr) throw solErr
 
       for (const { file } of arquivos) {
         const ext = file.name.split('.').pop()
-        const path = `${data.id}/${crypto.randomUUID()}.${ext}`
+        const path = `${sol.id}/${crypto.randomUUID()}.${ext}`
         const { error: upErr } = await supabase.storage
           .from('anexos')
           .upload(path, file, { contentType: file.type })
 
-        if (upErr) {
-          console.error('Erro no upload do arquivo:', file.name, upErr)
-        } else {
-          const { error: dbErr } = await supabase.from('anexos').insert({
-            solicitacao_id: data.id,
+        if (!upErr) {
+          await supabase.from('anexos').insert({
+            solicitacao_id: sol.id,
             nome_arquivo: file.name,
             storage_path: path,
             mime_type: file.type,
             tamanho_bytes: file.size,
             uploaded_by: profile.id,
           })
-
-          if (dbErr) console.error('Erro ao salvar anexo no banco:', file.name, dbErr)
         }
       }
 
       await supabase.from('historico').insert({
-        solicitacao_id: data.id,
+        solicitacao_id: sol.id,
         usuario_id: profile.id,
-        descricao: `Solicitacao criada por ${profile.nome}`,
+        tipo_evento: 'criada',
+        descricao: `Solicitação criada por ${profile.nome}`,
       })
 
-      navigate(`/solicitacao/${data.id}`)
+      const aprovadores = isSupervisor
+        ? dirSel.map(did => ({
+            solicitacao_id: sol.id,
+            usuario_id: did,
+            papel: APPROVER_ROLE.DIRECTOR,
+            ordem: 2,
+            status: APPROVER_STATUS.PENDING,
+          }))
+        : [{
+            solicitacao_id: sol.id,
+            usuario_id: supervisorInfo.id,
+            papel: APPROVER_ROLE.SUPERVISOR,
+            ordem: 1,
+            status: APPROVER_STATUS.PENDING,
+          }]
+
+      await supabase.from('solicitacao_aprovadores').insert(aprovadores)
+
+      await notificarFluxoFormulario('solicitacao_geral', FLOW_EVENTS.CREATED, {
+        solicitacaoId: sol.id,
+        titulo: sol.titulo,
+        actorNome: profile.nome,
+        solicitanteId: profile.id,
+        supervisorId: supervisorInfo?.id,
+      })
+
+      if (isSupervisor) {
+        await supabase.from('solicitacao_aprovadores').insert({
+          solicitacao_id: sol.id,
+          usuario_id: profile.id,
+          papel: APPROVER_ROLE.SUPERVISOR,
+          ordem: 1,
+          status: APPROVER_STATUS.APPROVED,
+          comentario: 'Solicitação criada diretamente pelo supervisor.',
+          decidido_em: new Date().toISOString(),
+        })
+
+        await supabase.from('solicitacao_pareceres').insert({
+          solicitacao_id: sol.id,
+          usuario_id: profile.id,
+          papel: APPROVER_ROLE.SUPERVISOR,
+          decisao: 'aprovado',
+          comentario: 'Solicitação criada diretamente pelo supervisor.',
+        })
+
+        await supabase.from('historico').insert({
+          solicitacao_id: sol.id,
+          usuario_id: profile.id,
+          tipo_evento: 'aprovacao_supervisor',
+          descricao: `Aprovado pelo supervisor ${profile.nome}: solicitação criada diretamente pelo supervisor.`,
+        })
+      }
+
+      navigate(`/solicitacao/${sol.id}`)
+    } catch (submitError) {
+      console.error('Erro ao enviar solicitação:', submitError)
+      setError('Erro ao enviar. Tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -229,10 +248,10 @@ export default function NovaSolicitacao() {
         </button>
         <div>
           <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 24, fontWeight: 700, color: 'var(--green-brand)' }}>
-            Nova solicitacao
+            Nova solicitação
           </h1>
           <p style={{ color: 'var(--text-3)', fontSize: 13, marginTop: 2 }}>
-            Preencha os detalhes. O supervisor selecionara os diretores ao aprovar.
+            Formulário genérico no novo modelo de dados.
           </p>
         </div>
       </div>
@@ -253,39 +272,60 @@ export default function NovaSolicitacao() {
           <AlertCircle size={18} style={{ color: 'var(--red)', flexShrink: 0, marginTop: 1 }} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--red)', marginBottom: 4 }}>
-              Supervisor nao vinculado
+              Supervisor não vinculado
             </div>
             <div style={{ fontSize: 13, color: 'var(--red)', lineHeight: 1.6 }}>
-              Supervisor nao vinculado. Voce nao possui supervisor vinculado.
+              Supervisor não vinculado. Você não possui supervisor vinculado.
             </div>
           </div>
         </div>
       )}
 
+      {error && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+            background: 'var(--red-bg)',
+            border: '1px solid var(--red-border)',
+            borderRadius: 'var(--radius)',
+            padding: '12px 16px',
+            marginBottom: 20,
+          }}
+        >
+          <AlertCircle size={16} style={{ color: 'var(--red)', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: 'var(--red)' }}>{error}</span>
+        </div>
+      )}
+
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div className="input-group">
-          <label>Titulo *</label>
-          <input
-            className="input"
-            placeholder="Ex: Compra de equipamentos de TI"
-            value={form.titulo}
-            onChange={e => setField('titulo', e.target.value)}
-            maxLength={120}
-          />
+          <label>Título *</label>
+          <input className="input" value={form.titulo} onChange={e => setField('titulo', e.target.value)} />
         </div>
 
         <div className="input-group">
-          <label>Descricao *</label>
-          <textarea
-            className="input"
-            rows={4}
-            placeholder="Descreva o motivo e os detalhes..."
-            value={form.descricao}
-            onChange={e => setField('descricao', e.target.value)}
-          />
+          <label>Descrição *</label>
+          <textarea className="input" rows={5} value={form.descricao} onChange={e => setField('descricao', e.target.value)} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="grid-auto-fit">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+          <div className="input-group">
+            <label>Setor de origem</label>
+            <select className="input" value={form.setor_origem} onChange={e => setField('setor_origem', e.target.value)}>
+              <option value="">Selecione</option>
+              {SETORES.map(setor => (
+                <option key={setor} value={setor}>{setor}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label>Categoria</label>
+            <input className="input" value={form.categoria} onChange={e => setField('categoria', e.target.value)} />
+          </div>
+
           <div className="input-group">
             <label>Valor estimado (R$)</label>
             <input
@@ -293,119 +333,28 @@ export default function NovaSolicitacao() {
               type="number"
               min="0"
               step="0.01"
-              placeholder="0,00"
               value={form.valor}
-              onChange={e => {
-                const value = e.target.value
-                if (value === '' || parseFloat(value) >= 0) setField('valor', value)
-              }}
+              onChange={e => setField('valor', e.target.value)}
             />
           </div>
-
-          <div className="input-group">
-            <label>Categoria</label>
-            <select
-              className="input"
-              value={form.categoria}
-              onChange={e => setField('categoria', e.target.value)}
-              style={{ cursor: 'pointer' }}
-            >
-              <option value="">Selecione...</option>
-              <option value="Processo">Processo</option>
-              <option value="Contrato">Contrato</option>
-              <option value="Servico">Servico</option>
-              <option value="Compra">Compra</option>
-              <option value="Pagamento">Pagamento</option>
-            </select>
-          </div>
-
-          <div className="input-group">
-            <label>Setor de origem</label>
-            <select
-              className="input"
-              value={form.setor_origem}
-              onChange={e => setField('setor_origem', e.target.value)}
-              style={{ cursor: 'pointer' }}
-            >
-              <option value="">Selecione...</option>
-              <option value="TI">TI</option>
-              <option value="Controladoria">Controladoria</option>
-              <option value="Tesouraria">Tesouraria</option>
-              <option value="Ambiental">Ambiental</option>
-              <option value="Contas a Pagar">Contas a Pagar</option>
-              <option value="Compras">Compras</option>
-              <option value="Assinatura Digital">Assinatura Digital</option>
-              <option value="Juridico">Juridico</option>
-              <option value="Financeiro">Financeiro</option>
-            </select>
-          </div>
         </div>
-
-        {isSupervisor && (
-          <div className="input-group">
-            <label>Diretor responsavel</label>
-            {dirSel.length > 0 ? (
-              diretores
-                .filter(d => dirSel.includes(d.id))
-                .map(d => (
-                  <div
-                    key={d.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '10px 13px',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--accent)',
-                      background: 'var(--accent-dim)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        background: 'var(--accent)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: 'white',
-                      }}
-                    >
-                      {d.nome.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{d.nome}</div>
-                      {d.departamento && <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{d.departamento}</div>}
-                    </div>
-                  </div>
-                ))
-            ) : (
-              <div style={{ fontSize: 13, color: 'var(--red)', padding: '8px 0' }}>
-                Nenhum diretor vinculado ao seu perfil. Solicite ao administrador.
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="input-group">
           <label>
             Anexos{' '}
             <span style={{ fontWeight: 400, textTransform: 'none', color: 'var(--text-3)' }}>
-              (PDF, imagens - max. 10 MB cada)
+              (max. 10 MB cada)
             </span>
           </label>
+
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx"
             multiple
             style={{ display: 'none' }}
             onChange={e => handleFiles(e.target.files)}
           />
+
           <button
             type="button"
             className="btn btn-outline"
@@ -417,42 +366,14 @@ export default function NovaSolicitacao() {
 
           {arquivos.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-              {arquivos.map(({ file, id }) => {
-                const Icon = fileIcon(file.type)
+              {arquivos.map(item => {
+                const Icon = fileIcon(item.file.type)
                 return (
-                  <div
-                    key={id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '8px 12px',
-                      background: 'var(--bg-2)',
-                      borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    <Icon size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 500,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {file.name}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatBytes(file.size)}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      style={{ padding: '3px 5px', color: 'var(--text-3)' }}
-                      onClick={() => setArquivos(prev => prev.filter(item => item.id !== id))}
-                    >
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}>
+                    <Icon size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.file.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatBytes(item.file.size)}</span>
+                    <button className="btn btn-ghost btn-sm" style={{ padding: '3px 5px' }} onClick={() => setArquivos(prev => prev.filter(file => file.id !== item.id))}>
                       <X size={13} />
                     </button>
                   </div>
@@ -462,32 +383,13 @@ export default function NovaSolicitacao() {
           )}
         </div>
 
-        {error && (
-          <div
-            style={{
-              background: 'var(--red-bg)',
-              border: '1px solid var(--red-border)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
-              fontSize: 13,
-              color: 'var(--red)',
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingTop: 4 }} className="action-buttons">
-          <button className="btn btn-outline" onClick={() => navigate(-1)}>Cancelar</button>
-          <button
-            className="btn btn-primary"
-            onClick={handleSubmit}
-            disabled={loading || (!isSupervisor && !isDirector && !supervisorInfo)}
-          >
-            {loading
-              ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'white' }} />
-              : <Send size={14} />}
-            {loading ? 'Enviando...' : 'Enviar solicitacao'}
+        <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={loading || (!isSupervisor && !isDirector && !supervisorInfo)}>
+            {loading ? <span className="spinner" style={{ width: 14, height: 14, borderTopColor: 'white' }} /> : <Send size={14} />}
+            Enviar solicitação
+          </button>
+          <button className="btn btn-ghost" onClick={() => navigate('/nova-solicitacao')} disabled={loading}>
+            Cancelar
           </button>
         </div>
       </div>

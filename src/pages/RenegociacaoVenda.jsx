@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { FLOW_EVENTS, notificarFluxoFormulario } from '../lib/notificar'
 import { supabase } from '../lib/supabase'
 import { ArrowLeft, Send, Paperclip, X, FileText, Image, File, AlertCircle } from 'lucide-react'
-import { STATUS, formatBytes } from '../lib/workflow'
+import { APPROVER_ROLE, APPROVER_STATUS, STATUS, formatBytes } from '../lib/workflow'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
@@ -311,8 +312,6 @@ export default function RenegociacaoVenda() {
       const payload = {
         titulo,
         descricao,
-        valor: Number(form.valor),
-        categoria: 'Renegociação de Venda',
         formulario_tipo: 'renegociacao_venda',
         dados_formulario: {
           empresa_origem: empresa ? `${empresa.codigo}-${empresa.nome}` : form.empresa_origem,
@@ -331,16 +330,11 @@ export default function RenegociacaoVenda() {
           novas_datas: parcelDates,
           novo_valor: form.justificativa === 'Nova data' ? null : Number(form.novo_valor || 0),
           observacao: form.observacao.trim() || null,
+          setor_origem: profile.departamento || null,
+          requer_tesouraria: true,
         },
-        setor_origem: profile.departamento || null,
-        requer_tesouraria: true,
         solicitante_id: profile.id,
-        status: isSupervisor ? STATUS.SUPERVISOR_APPROVED : STATUS.PENDING,
-      }
-
-      if (isSupervisor) {
-        payload.supervisor_id = profile.id
-        payload.supervisor_aprovado_em = new Date().toISOString()
+        status: STATUS.IN_APPROVAL,
       }
 
       const { data: sol, error: solErr } = await supabase
@@ -370,13 +364,72 @@ export default function RenegociacaoVenda() {
       await supabase.from('historico').insert({
         solicitacao_id: sol.id,
         usuario_id: profile.id,
+        tipo_evento: 'criada',
         descricao: 'Solicitação criada por ' + profile.nome,
       })
 
-      if (isSupervisor && dirSel.length > 0) {
-        await supabase.from('solicitacao_diretores').insert(
-          dirSel.map(did => ({ solicitacao_id: sol.id, diretor_id: did, status: 'pendente' }))
-        )
+      const aprovadores = isSupervisor
+        ? dirSel.map(did => ({
+            solicitacao_id: sol.id,
+            usuario_id: did,
+            papel: APPROVER_ROLE.DIRECTOR,
+            ordem: 2,
+            status: APPROVER_STATUS.PENDING,
+          }))
+        : [{
+            solicitacao_id: sol.id,
+            usuario_id: supervisorInfo.id,
+            papel: APPROVER_ROLE.SUPERVISOR,
+            ordem: 1,
+            status: APPROVER_STATUS.PENDING,
+          }]
+
+      await supabase.from('solicitacao_aprovadores').insert(aprovadores)
+
+      if (!isSupervisor && supervisorInfo?.id) {
+        await notificarFluxoFormulario('renegociacao_venda', FLOW_EVENTS.CREATED, {
+          solicitacaoId: sol.id,
+          titulo: sol.titulo,
+          actorNome: profile.nome,
+          solicitanteId: profile.id,
+          supervisorId: supervisorInfo.id,
+        })
+      }
+
+      if (isSupervisor) {
+        await supabase.from('solicitacao_aprovadores').insert({
+          solicitacao_id: sol.id,
+          usuario_id: profile.id,
+          papel: APPROVER_ROLE.SUPERVISOR,
+          ordem: 1,
+          status: APPROVER_STATUS.APPROVED,
+          comentario: 'Solicitação criada diretamente pelo supervisor.',
+          decidido_em: new Date().toISOString(),
+        })
+
+        await supabase.from('solicitacao_pareceres').insert({
+          solicitacao_id: sol.id,
+          usuario_id: profile.id,
+          papel: APPROVER_ROLE.SUPERVISOR,
+          decisao: 'aprovado',
+          comentario: 'Solicitação criada diretamente pelo supervisor.',
+        })
+
+        await supabase.from('historico').insert({
+          solicitacao_id: sol.id,
+          usuario_id: profile.id,
+          tipo_evento: 'aprovacao_supervisor',
+          descricao: 'Aprovado pelo supervisor ' + profile.nome + ': solicitação criada diretamente pelo supervisor.',
+        })
+
+        await notificarFluxoFormulario('renegociacao_venda', FLOW_EVENTS.SUPERVISOR_APPROVED, {
+          solicitacaoId: sol.id,
+          titulo: sol.titulo,
+          actorNome: profile.nome,
+          solicitanteId: profile.id,
+          supervisorId: profile.id,
+          diretorIds: dirSel,
+        })
       }
 
       navigate('/solicitacao/' + sol.id)

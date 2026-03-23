@@ -1,78 +1,56 @@
 export const STATUS = {
-  PENDING:             'pendente',
-  SUPERVISOR_APPROVED: 'aprovado_supervisor',
-  PARTIAL:             'aprovado_parcial',
-  APPROVED:            'aprovado',
-  REJECTED:            'rejeitado',
-  AGUARDA_TESOURARIA:  'aguarda_tesouraria',
+  PENDING: 'pendente',
+  IN_APPROVAL: 'em_aprovacao',
+  APPROVED: 'aprovado',
+  REJECTED: 'rejeitado',
+  CANCELED: 'cancelado',
 }
 
-export const URGENCY = {
-  LOW:      'baixa',
-  NORMAL:   'normal',
-  HIGH:     'alta',
-  CRITICAL: 'critica',
+export const APPROVER_STATUS = {
+  PENDING: 'pendente',
+  APPROVED: 'aprovado',
+  REJECTED: 'rejeitado',
+  CANCELED: 'cancelado',
+}
+
+export const APPROVER_ROLE = {
+  SUPERVISOR: 'supervisor',
+  DIRECTOR: 'diretor',
+  TREASURY: 'tesouraria',
+  APPROVER: 'aprovador',
 }
 
 export const ROLE_LABELS = {
   solicitante: 'SOLICITANTE',
-  supervisor:  'SUPERVISOR',
-  diretor:     'DIRETOR',
+  supervisor: 'SUPERVISOR',
+  diretor: 'DIRETOR',
 }
 
 export const STATUS_META = {
   [STATUS.PENDING]: {
     label: 'Pendente',
-    cls:   'badge-pendente',
-    dot:   'dot-pendente',
+    cls: 'badge-pendente',
+    dot: 'dot-pendente',
   },
-  [STATUS.SUPERVISOR_APPROVED]: {
-    label: 'Aguarda Diretor',
-    cls:   'badge-supervisor',
-    dot:   'dot-supervisor',
-  },
-  [STATUS.PARTIAL]: {
-    label: 'Aprovação Parcial',
-    cls:   'badge-supervisor',
-    dot:   'dot-supervisor',
+  [STATUS.IN_APPROVAL]: {
+    label: 'Em aprovação',
+    cls: 'badge-supervisor',
+    dot: 'dot-supervisor',
   },
   [STATUS.APPROVED]: {
     label: 'Aprovado',
-    cls:   'badge-aprovado',
-    dot:   'dot-aprovado',
+    cls: 'badge-aprovado',
+    dot: 'dot-aprovado',
   },
   [STATUS.REJECTED]: {
     label: 'Rejeitado',
-    cls:   'badge-rejeitado',
-    dot:   'dot-rejeitado',
+    cls: 'badge-rejeitado',
+    dot: 'dot-rejeitado',
   },
-  ['aguarda_tesouraria']: {
-    label: 'Aguarda Tesouraria',
-    cls:   'badge-supervisor',
-    dot:   'dot-supervisor',
-  },
-}
-
-export const URGENCY_META = {
-  [URGENCY.LOW]: {
-    label: 'Baixa',
-    color: 'var(--text-3)',
-    order: 3,
-  },
-  [URGENCY.NORMAL]: {
-    label: 'Normal',
-    color: 'var(--blue)',
-    order: 2,
-  },
-  [URGENCY.HIGH]: {
-    label: 'Alta',
-    color: 'var(--yellow)',
-    order: 1,
-  },
-  [URGENCY.CRITICAL]: {
-    label: 'Crítica',
-    color: 'var(--red)',
-    order: 0,
+  [STATUS.CANCELED]: {
+    label: 'Cancelado',
+    cls: 'badge-rejeitado',
+    dot: 'dot-rejeitado',
   },
 }
 
@@ -80,32 +58,81 @@ export function getStatusMeta(status) {
   return STATUS_META[status] || STATUS_META[STATUS.PENDING]
 }
 
-// Supervisor vê solicitações com status pendente
-export function isPendingForSupervisor(status) {
-  return status === STATUS.PENDING
+export function normalizeFormData(dados) {
+  if (!dados) return {}
+  if (typeof dados === 'string') {
+    try {
+      return JSON.parse(dados)
+    } catch {
+      return {}
+    }
+  }
+  return dados
 }
 
-// Diretor vê solicitações que já passaram pelo supervisor (ou pularam)
-export function isPendingForDirector(status) {
-  return status === STATUS.SUPERVISOR_APPROVED || status === STATUS.PARTIAL
+export function getRequestValue(item) {
+  const dados = normalizeFormData(item?.dados_formulario)
+  const value = dados?.valor
+  return value === undefined || value === null || value === '' ? null : Number(value)
 }
 
-// Calcula novo status após um diretor aprovar
-// diretores: array de { status } de solicitacao_diretores
-export function calcStatusAfterDirectorApprove(diretores) {
-  const total     = diretores.length
-  const aprovados = diretores.filter(d => d.status === 'aprovado').length
-  if (aprovados === total) return STATUS.APPROVED
-  return STATUS.PARTIAL
+export function getRequestSetor(item) {
+  const dados = normalizeFormData(item?.dados_formulario)
+  return (
+    dados?.setor_origem ||
+    dados?.departamento_origem ||
+    dados?.setor ||
+    dados?.origem ||
+    item?.setor_origem ||
+    null
+  )
 }
 
-export function isPendingForTesouraria(status) {
-  return status === 'aguarda_tesouraria'
+export function getRequestRequiresTreasury(item) {
+  const dados = normalizeFormData(item?.dados_formulario)
+  return Boolean(dados?.requer_tesouraria)
+}
+
+export function isFinishedStatus(status) {
+  return [STATUS.APPROVED, STATUS.REJECTED, STATUS.CANCELED].includes(status)
+}
+
+export function isPendingStatus(status) {
+  return [STATUS.PENDING, STATUS.IN_APPROVAL].includes(status)
+}
+
+export function getApproverRoleLabel(role) {
+  switch (role) {
+    case APPROVER_ROLE.SUPERVISOR:
+      return 'supervisor'
+    case APPROVER_ROLE.DIRECTOR:
+      return 'diretor'
+    case APPROVER_ROLE.TREASURY:
+      return 'tesouraria'
+    default:
+      return 'aprovador'
+  }
+}
+
+export function getCurrentPendingOrder(aprovadores) {
+  const ordens = (aprovadores || [])
+    .filter(item => item.status === APPROVER_STATUS.PENDING)
+    .map(item => item.ordem)
+    .filter(value => value !== undefined && value !== null)
+
+  if (!ordens.length) return null
+  return Math.min(...ordens)
+}
+
+export function getCurrentPendingApprovers(aprovadores) {
+  const ordemAtual = getCurrentPendingOrder(aprovadores)
+  if (ordemAtual == null) return []
+  return (aprovadores || []).filter(item => item.status === APPROVER_STATUS.PENDING && item.ordem === ordemAtual)
 }
 
 export function formatBytes(bytes) {
   if (!bytes) return ''
-  if (bytes < 1024)       return `${bytes} B`
-  if (bytes < 1048576)    return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1048576).toFixed(1)} MB`
 }

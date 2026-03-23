@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { FilePlus, Clock, CheckCircle, XCircle, TrendingUp, ArrowRight, Loader } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { STATUS, getStatusMeta, isPendingForDirector } from '../lib/workflow'
+import { APPROVER_STATUS, STATUS, getRequestValue, getStatusMeta } from '../lib/workflow'
 
 const PERIODS = [
   { id: 'hoje', label: 'Hoje' },
@@ -14,12 +14,12 @@ const PERIODS = [
 ]
 
 export default function Dashboard() {
-  const { profile, isDirector, isSupervisor, canApprove } = useAuth()
-  const isTesouraria = isSupervisor && profile?.departamento === 'Tesouraria'
+  const { profile, isDirector, canApprove } = useAuth()
   const navigate = useNavigate()
 
   const [period, setPeriod] = useState('7dias')
   const [allMine, setAllMine] = useState([])
+  const [allAssigned, setAllAssigned] = useState([])
   const [allPending, setAllPending] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -28,7 +28,9 @@ export default function Dashboard() {
   }, [profile])
 
   async function fetchData() {
+    if (!profile) return
     setLoading(true)
+
     try {
       const { data: mineRows } = await supabase
         .from('solicitacoes')
@@ -38,62 +40,33 @@ export default function Dashboard() {
 
       setAllMine(mineRows || [])
 
-      if (isTesouraria) {
-        const { data } = await supabase
-          .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-          .eq('status', 'aguarda_tesouraria')
-          .eq('requer_tesouraria', true)
-          .order('created_at', { ascending: false })
-        setAllPending(data || [])
-        return
-      }
-
-      if (isSupervisor) {
-        const { data: subordinados } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('supervisor_id', profile.id)
-
-        const ids = (subordinados || []).map(item => item.id)
-        if (!ids.length) {
-          setAllPending([])
-          return
-        }
-
-        const { data } = await supabase
-          .from('solicitacoes')
-          .select('*, profiles!solicitacoes_solicitante_id_fkey(nome)')
-          .eq('status', STATUS.PENDING)
-          .in('solicitante_id', ids)
-          .order('created_at', { ascending: false })
-        setAllPending(data || [])
-        return
-      }
-
-      if (isDirector) {
-        const { data: dirRows } = await supabase
-          .from('solicitacao_diretores')
+      if (canApprove) {
+        const { data: approvalRows } = await supabase
+          .from('solicitacao_aprovadores')
           .select(`
-            status,
+            *,
             solicitacao:solicitacoes(
               *,
               profiles!solicitacoes_solicitante_id_fkey(nome)
             )
           `)
-          .eq('diretor_id', profile.id)
-          .eq('status', 'pendente')
+          .eq('usuario_id', profile.id)
           .order('created_at', { ascending: false })
 
-        const flat = (dirRows || [])
-          .filter(item => item.solicitacao && isPendingForDirector(item.solicitacao.status))
-          .map(item => ({ ...item.solicitacao, profiles: item.solicitacao.profiles }))
+        const assigned = (approvalRows || [])
+          .filter(item => item.solicitacao)
+          .map(item => ({
+            ...item.solicitacao,
+            profiles: item.solicitacao.profiles,
+            _minha_decisao: item.status,
+          }))
 
-        setAllPending(flat)
-        return
+        setAllAssigned(assigned)
+        setAllPending(assigned.filter(item => item._minha_decisao === APPROVER_STATUS.PENDING))
+      } else {
+        setAllAssigned([])
+        setAllPending([])
       }
-
-      setAllPending([])
     } finally {
       setLoading(false)
     }
@@ -101,45 +74,52 @@ export default function Dashboard() {
 
   const recent = useMemo(() => filterByPeriod(allMine, period).slice(0, 5), [allMine, period])
   const pending = useMemo(() => filterByPeriod(allPending, period).slice(0, 5), [allPending, period])
+  const statSource = isDirector ? allAssigned : allMine
+  const approvalSource = canApprove ? allAssigned : []
 
   const stats = useMemo(() => {
-    const filtered = filterByPeriod(allMine, period)
+    const filtered = filterByPeriod(statSource, period)
+    const approvalFiltered = filterByPeriod(approvalSource, period)
     return {
       total: filtered.length,
-      andamento: filtered.filter(item => [STATUS.PENDING, STATUS.SUPERVISOR_APPROVED, STATUS.PARTIAL, STATUS.AGUARDA_TESOURARIA].includes(item.status)).length,
-      aprovado: filtered.filter(item => item.status === STATUS.APPROVED).length,
-      rejeitado: filtered.filter(item => item.status === STATUS.REJECTED).length,
+      andamento: filtered.filter(item => [STATUS.PENDING, STATUS.IN_APPROVAL].includes(item.status)).length,
+      aprovado: canApprove
+        ? approvalFiltered.filter(item => item._minha_decisao === APPROVER_STATUS.APPROVED).length
+        : filtered.filter(item => item.status === STATUS.APPROVED).length,
+      rejeitado: canApprove
+        ? approvalFiltered.filter(item => item._minha_decisao === 'rejeitado').length
+        : filtered.filter(item => item.status === STATUS.REJECTED).length,
     }
-  }, [allMine, period])
+  }, [approvalSource, canApprove, statSource, period])
 
   const statCards = [
     {
-      label: 'Total enviados',
+      label: isDirector ? 'Total recebidas' : 'Total enviados',
       value: stats.total,
       icon: TrendingUp,
       color: 'var(--accent)',
-      action: () => openSolicitacoes({ aba: 'minhas', period }),
+      action: () => openSolicitacoes({ aba: isDirector ? 'pendentes' : 'minhas', period }),
     },
     {
       label: 'Em andamento',
       value: stats.andamento,
       icon: Clock,
       color: 'var(--yellow)',
-      action: () => openSolicitacoes({ aba: 'minhas', period, status: 'andamento' }),
+      action: () => openSolicitacoes({ aba: isDirector ? 'pendentes' : 'minhas', period, status: STATUS.IN_APPROVAL }),
     },
     {
       label: 'Aprovados',
       value: stats.aprovado,
       icon: CheckCircle,
       color: 'var(--green)',
-      action: () => openSolicitacoes({ aba: 'historico', period, status: STATUS.APPROVED }),
+      action: () => navigate(canApprove ? '/aprovacoes?filter=concluidas&decision=aprovado' : `/solicitacoes?${new URLSearchParams({ aba: 'concluidas', period, status: STATUS.APPROVED }).toString()}`),
     },
     {
       label: 'Rejeitados',
       value: stats.rejeitado,
       icon: XCircle,
       color: 'var(--red)',
-      action: () => openSolicitacoes({ aba: 'historico', period, status: STATUS.REJECTED }),
+      action: () => navigate(canApprove ? '/aprovacoes?filter=concluidas&decision=rejeitado' : `/solicitacoes?${new URLSearchParams({ aba: 'concluidas', period, status: STATUS.REJECTED }).toString()}`),
     },
   ]
 
@@ -238,7 +218,7 @@ export default function Dashboard() {
               {pending.length === 0 ? (
                 <EmptyCard icon={CheckCircle} text="Nenhuma pendência no momento" />
               ) : pending.map(item => (
-                <SolicitacaoRow key={item.id} item={item} onClick={() => navigate(`/solicitacao/${item.id}`)} showSolicitante />
+                <SolicitacaoRow key={`${item.id}-${item._minha_decisao}`} item={item} onClick={() => navigate(`/solicitacao/${item.id}`)} showSolicitante />
               ))}
             </div>
           </section>
@@ -277,6 +257,8 @@ function EmptyCard({ icon: Icon, text }) {
 
 function SolicitacaoRow({ item, onClick, showSolicitante }) {
   const status = getStatusMeta(item.status)
+  const valor = getRequestValue(item)
+
   return (
     <div
       className="card"
@@ -300,8 +282,8 @@ function SolicitacaoRow({ item, onClick, showSolicitante }) {
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {showSolicitante && <span>{item.profiles?.nome}</span>}
             <span>{format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm")}</span>
-            {item.valor != null && (
-              <span>R$ {Number(item.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            {valor != null && (
+              <span>R$ {valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             )}
           </div>
         </div>

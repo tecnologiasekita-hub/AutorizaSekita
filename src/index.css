@@ -69,6 +69,36 @@
   --shadow-lg: 0 2px 8px rgba(26,92,56,0.1), 0 12px 40px rgba(26,92,56,0.08);
 }
 
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .no-print,
+  .sidebar-only,
+  .menu-btn-mobile {
+    display: none !important;
+  }
+
+  .content-area {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .audit-print-root {
+    max-width: none !important;
+    margin: 0 !important;
+    gap: 12px !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+}
+
 html { font-size: 16px; }
 
 body {

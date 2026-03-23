@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Aprovacoes from './pages/Aprovacoes'
 import Solicitacoes from './pages/Solicitacoes'
 import DetalhesSolicitacao from './pages/DetalhesSolicitacao'
 import SelecionarFormulario from './pages/SelecionarFormulario'
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/nova-solicitacao"      element={<NonDirectorRoute><SelecionarFormulario /></NonDirectorRoute>} />
         <Route path="/nova-solicitacao/geral"  element={<Navigate to="/nova-solicitacao" replace />} />
         <Route path="/nova-solicitacao/renegociacao-venda" element={<NonDirectorRoute><RenegociacaoVenda /></NonDirectorRoute>} />
+        <Route path="/aprovacoes"            element={<ApproverRoute><Aprovacoes /></ApproverRoute>} />
         <Route path="/solicitacoes"           element={<Solicitacoes />} />
         <Route path="/solicitacao/:id"       element={<DetalhesSolicitacao />} />
         <Route path="/perfil"                element={<Perfil />} />
