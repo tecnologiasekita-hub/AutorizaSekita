@@ -36,3 +36,19 @@ Ja existe no projeto:
 - `src/contexts/AuthContext.jsx`
 - `src/lib/notificar.js`
 - `sql/2026-03-24-device-push-tokens.sql`
+- `supabase/functions/send-push/index.ts`
+
+## Variaveis da edge function send-push
+
+Configurar no Supabase:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+- `FIREBASE_TOKEN_URI`
+
+Normalmente `FIREBASE_TOKEN_URI` e:
+
+- `https://oauth2.googleapis.com/token`

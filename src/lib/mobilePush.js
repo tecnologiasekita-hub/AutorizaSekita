@@ -82,6 +82,17 @@ export async function registerNativePush(userId) {
     return
   }
 
+  if (Capacitor.getPlatform() === 'android') {
+    await PushNotifications.createChannel({
+      id: 'autorizasekita',
+      name: 'AutorizaSekita',
+      description: 'Notificacoes do fluxo de autorizacoes',
+      importance: 5,
+      visibility: 1,
+      vibration: true,
+    })
+  }
+
   await PushNotifications.register()
 }
 
