@@ -2,6 +2,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 type PushPayload = {
   user_id?: string
+  solicitacao_id?: string
+  tipo?: string
   title?: string
   body?: string
   url?: string
@@ -139,6 +141,8 @@ Deno.serve(async req => {
   try {
     const payload = await req.json() as PushPayload
     const userId = payload.user_id
+    const solicitacaoId = payload.solicitacao_id
+    const tipo = payload.tipo || 'sistema'
     const title = payload.title || 'AutorizaSekita'
     const body = payload.body || 'Nova notificação'
     const url = payload.url || '/dashboard'
@@ -151,6 +155,20 @@ Deno.serve(async req => {
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+
+    const { error: notificationError } = await supabase
+      .from('notificacoes')
+      .insert({
+        usuario_id: userId,
+        solicitacao_id: solicitacaoId || null,
+        tipo,
+        mensagem: body,
+        lida: false,
+      })
+
+    if (notificationError) {
+      throw notificationError
+    }
 
     const { data: tokens, error } = await supabase
       .from('device_push_tokens')

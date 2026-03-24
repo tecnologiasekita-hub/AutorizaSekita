@@ -11,34 +11,29 @@ const FLOW_EVENTS = {
   TREASURY_REJECTED: 'tesouraria_rejeitou',
 }
 
-async function salvarNotificacao(usuarioId, solicitacaoId, mensagem, tipo = 'sistema') {
-  await supabase.from('notificacoes').insert({
-    usuario_id: usuarioId,
-    solicitacao_id: solicitacaoId,
-    tipo,
-    mensagem,
-    lida: false,
-  })
-}
-
-async function enviarPush(usuarioId, solicitacaoId, mensagem, titulo = 'AutorizaSekita') {
+async function enviarNotificacao(usuarioId, solicitacaoId, mensagem, tipo = 'sistema', titulo = 'AutorizaSekita') {
   try {
-    await supabase.functions.invoke('send-push', {
+    const { error } = await supabase.functions.invoke('send-push', {
       body: {
         user_id: usuarioId,
+        solicitacao_id: solicitacaoId,
+        tipo,
         title: titulo,
         body: mensagem,
         url: `/solicitacao/${solicitacaoId}`,
       },
     })
+
+    if (error) {
+      throw error
+    }
   } catch (err) {
-    console.warn('Push não enviado:', err)
+    console.warn('Notificacao remota nao enviada:', err)
   }
 }
 
 export async function notificar(usuarioId, solicitacaoId, mensagem, tipo = 'sistema', titulo = 'AutorizaSekita') {
-  await salvarNotificacao(usuarioId, solicitacaoId, mensagem, tipo)
-  await enviarPush(usuarioId, solicitacaoId, mensagem, titulo)
+  await enviarNotificacao(usuarioId, solicitacaoId, mensagem, tipo, titulo)
 }
 
 export async function notificarLote(userIds, solicitacaoId, mensagem, tipo = 'sistema', titulo = 'AutorizaSekita') {
@@ -90,49 +85,49 @@ function getRenegociacaoMensagem(evento, contexto) {
     case FLOW_EVENTS.CREATED:
       return {
         tipo: 'aprovacao_pendente',
-        mensagem: `A solicitação "${titulo}" aguarda sua aprovação.`,
+        mensagem: `A solicitacao "${titulo}" aguarda sua aprovacao.`,
       }
 
     case FLOW_EVENTS.SUPERVISOR_APPROVED:
       return {
         tipo: 'fluxo_atualizado',
-        mensagem: `A solicitação "${titulo}" foi aprovada pelo supervisor ${actorNome}.`,
+        mensagem: `A solicitacao "${titulo}" foi aprovada pelo supervisor ${actorNome}.`,
       }
 
     case FLOW_EVENTS.SUPERVISOR_REJECTED:
       return {
         tipo: 'rejeicao',
-        mensagem: `A solicitação "${titulo}" foi rejeitada pelo supervisor ${actorNome}.`,
+        mensagem: `A solicitacao "${titulo}" foi rejeitada pelo supervisor ${actorNome}.`,
       }
 
     case FLOW_EVENTS.DIRECTOR_APPROVED:
       return {
         tipo: 'fluxo_atualizado',
-        mensagem: `A solicitação "${titulo}" foi aprovada pelo diretor ${actorNome}.`,
+        mensagem: `A solicitacao "${titulo}" foi aprovada pelo diretor ${actorNome}.`,
       }
 
     case FLOW_EVENTS.DIRECTOR_REJECTED:
       return {
         tipo: 'rejeicao',
-        mensagem: `A solicitação "${titulo}" foi rejeitada pelo diretor ${actorNome}.`,
+        mensagem: `A solicitacao "${titulo}" foi rejeitada pelo diretor ${actorNome}.`,
       }
 
     case FLOW_EVENTS.TREASURY_APPROVED:
       return {
         tipo: 'autorizacao_tesouraria',
-        mensagem: `A solicitação "${titulo}" foi aprovada pela Tesouraria.`,
+        mensagem: `A solicitacao "${titulo}" foi aprovada pela Tesouraria.`,
       }
 
     case FLOW_EVENTS.TREASURY_REJECTED:
       return {
         tipo: 'rejeicao',
-        mensagem: `A solicitação "${titulo}" foi rejeitada pela Tesouraria.`,
+        mensagem: `A solicitacao "${titulo}" foi rejeitada pela Tesouraria.`,
       }
 
     default:
       return {
         tipo: 'sistema',
-        mensagem: `Houve uma atualização na solicitação "${titulo}".`,
+        mensagem: `Houve uma atualizacao na solicitacao "${titulo}".`,
       }
   }
 }
