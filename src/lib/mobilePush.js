@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { LocalNotifications } from '@capacitor/local-notifications'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { supabase } from './supabase'
 
@@ -58,6 +59,21 @@ function ensureListeners() {
 
   PushNotifications.addListener('pushNotificationReceived', notification => {
     console.log('Push recebido no app:', notification)
+
+    LocalNotifications.schedule({
+      notifications: [
+        {
+          id: Date.now(),
+          title: notification.title || 'AutorizaSekita',
+          body: notification.body || 'Nova notificacao',
+          schedule: { at: new Date(Date.now() + 200) },
+          channelId: 'autorizasekita',
+          extra: notification.data || {},
+        },
+      ],
+    }).catch(error => {
+      console.warn('Nao foi possivel exibir notificacao local:', error)
+    })
   })
 
   PushNotifications.addListener('pushNotificationActionPerformed', notification => {
@@ -81,6 +97,8 @@ export async function registerNativePush(userId) {
     console.warn('Permissao de notificacao nao concedida no dispositivo.')
     return
   }
+
+  await LocalNotifications.requestPermissions()
 
   if (Capacitor.getPlatform() === 'android') {
     await PushNotifications.createChannel({
