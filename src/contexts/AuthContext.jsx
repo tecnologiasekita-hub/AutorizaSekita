@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { clearNativePushUser, registerNativePush } from '../lib/mobilePush'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
@@ -15,6 +16,7 @@ export function AuthProvider({ children }) {
       if (session?.user) {
         loadProfile(session.user.id)
         loadNotifications(session.user.id)
+        registerNativePush(session.user.id)
       }
       setLoading(false)
     })
@@ -24,9 +26,11 @@ export function AuthProvider({ children }) {
       if (session?.user) {
         loadProfile(session.user.id)
         loadNotifications(session.user.id)
+        registerNativePush(session.user.id)
       } else {
         setProfile(null)
         setNotifications([])
+        clearNativePushUser()
       }
     })
 
@@ -67,6 +71,7 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
     setProfile(null)
     setNotifications([])
+    clearNativePushUser()
   }
 
   const updateProfile = async (updates) => {

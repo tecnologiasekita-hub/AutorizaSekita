@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "240361985127",
+    "project_id": "autorizasekita",
+    "storage_bucket": "autorizasekita.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:240361985127:android:10ea6d9c089eb6a35cf0c2",
+        "android_client_info": {
+          "package_name": "com.sekita.autorizasekita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDwKUNcQeJu2dBEmy6nyaGvfjvq9qHrgIg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
